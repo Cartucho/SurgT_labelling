@@ -1,0 +1,6 @@
+# User settings
+data:
+    dir: "data"
+    subdir_stereo_l: "left"
+    subdir_stereo_r: "right"
+# Code configuration
