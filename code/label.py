@@ -38,6 +38,7 @@ class Interface:
         self.im_path_l = natsorted(glob.glob(im_l_path))
         im_r_path = os.path.join(self.dir_r, "*{}".format(self.im_format))
         self.im_path_r = natsorted(glob.glob(im_r_path))
+        assert(len(self.im_path_l) == len(self.im_path_r))
 
 
     def im_resize(self, im_l, im_r):
