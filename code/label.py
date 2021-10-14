@@ -55,8 +55,8 @@ class Interface:
 
 
     def mouse_listener(self, event, x, y, flags, param):
-        self.mouse_u = y
-        self.mouse_v = x
+        self.mouse_u = x
+        self.mouse_v = y
 
 
     def create_window(self, window_name):
