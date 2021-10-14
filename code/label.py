@@ -27,6 +27,9 @@ class Interface:
         c_vis = config["vis"]
         max_w_pxl = c_vis["max_w_pxl"]
         self.im_w_d = int(max_w_pxl / 2)
+        c_guide = c_vis["guide"]
+        self.guide_t = c_guide["thick_pxl"]
+        self.guide_c = c_guide["color"]
         # Initialize
         self.ind_im = 0
         self.ind_class = 0
@@ -50,7 +53,18 @@ class Interface:
         return im_l, im_r
 
 
+    def im_draw_guide_line(self, im_l, im_r):
+        line_thick = self.guide_t
+        color = np.array(self.guide_c, dtype=np.uint8).tolist()
+        v = self.mouse_v
+        width = im_l.shape[1]
+        im_l = cv.line(im_l, (0, v), (width, v), color, line_thick)
+        im_r = cv.line(im_r, (0, v), (width, v), color, line_thick)
+        return im_l, im_r
+
+
     def im_augmentation(self, im_l, im_r):
+        self.im_draw_guide_line(im_l, im_r)
         return im_l, im_r
 
 
@@ -76,7 +90,7 @@ class Interface:
         # Resize images (from current to desired)
         im_l, im_r = self.im_resize(im_l, im_r)
         # Augment images
-        #im_l, im_r = self.im_augmentation(im_l, im_r)
+        im_l, im_r = self.im_augmentation(im_l, im_r)
         return im_l, im_r
 
 
