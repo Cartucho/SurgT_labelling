@@ -1,5 +1,8 @@
 import glob
 import os
+from natsort import natsorted
+
+
 class Interface:
     def __init__(self, config):
         c_data = config["data"]
@@ -11,9 +14,9 @@ class Interface:
 
     def load_image_paths(self):
         im_l_path = os.path.join(self.dir_l, "*{}".format(self.im_format))
-        self.im_path_l = glob.glob(im_l_path)
+        self.im_path_l = natsorted(glob.glob(im_l_path))
         im_r_path = os.path.join(self.dir_r, "*{}".format(self.im_format))
-        self.im_path_r = glob.glob(im_r_path)
+        self.im_path_r = natsorted(glob.glob(im_r_path))
         print(self.im_path_l)
 
 
