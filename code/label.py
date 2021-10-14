@@ -38,6 +38,15 @@ class Interface:
         self.im_path_r = natsorted(glob.glob(im_r_path))
 
 
+    def resize_images(self, im_l, im_r):
+        im_w_c = im_l.shape[1]
+        im_w_d = self.im_w_d
+        f = float(im_w_d) / im_w_c # scale factor
+        im_l = cv.resize(im_l, None, fx=f, fy=f, interpolation=cv.INTER_AREA)
+        im_r = cv.resize(im_r, None, fx=f, fy=f, interpolation=cv.INTER_AREA)
+        return im_l, im_r
+
+
     def show_image(self):
         im_path_l = self.im_path_l[self.ind_im] # TODO: update ind_im carefully
         im_path_r = self.im_path_r[self.ind_im]
@@ -46,11 +55,7 @@ class Interface:
         # Check that images have the same size
         assert(im_l.shape == im_r.shape)
         # Resize images (from current to desired)
-        im_w_c = im_l.shape[1]
-        im_w_d = self.im_w_d
-        f = float(im_w_d) / im_w_c # scale factor
-        im_l = cv.resize(im_l, None, fx=f, fy=f, interpolation=cv.INTER_AREA)
-        im_r = cv.resize(im_r, None, fx=f, fy=f, interpolation=cv.INTER_AREA)
+        im_l, im_r = self.resize_images(im_l, im_r)
         # Stack images together
         stack = np.concatenate((im_l, im_r), axis=1)
         cv.imshow("Stereo match labeler", stack)
