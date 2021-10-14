@@ -88,7 +88,7 @@ class Interface:
             # Stack images together
             stack = np.concatenate((im_l, im_r), axis=1)
             cv.imshow(window_name, stack)
-            key_pressed = cv.waitKey(20)
+            key_pressed = cv.waitKey(1)
         print("Finished")
 
 
