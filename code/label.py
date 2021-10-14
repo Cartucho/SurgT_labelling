@@ -25,8 +25,6 @@ class Interface:
         self.key_magic = c_keys["magic"]
         # Load visualization data
         c_vis = config["vis"]
-        max_w_pxl = c_vis["max_w_pxl"]
-        self.im_w_d = int(max_w_pxl / 2)
         c_guide = c_vis["guide"]
         self.guide_t = c_guide["thick_pxl"]
         self.guide_c = c_guide["color"]
@@ -42,15 +40,6 @@ class Interface:
         im_r_path = os.path.join(self.dir_r, "*{}".format(self.im_format))
         self.im_path_r = natsorted(glob.glob(im_r_path))
         assert(len(self.im_path_l) == len(self.im_path_r))
-
-
-    def im_resize(self, im_l, im_r):
-        im_w_c = im_l.shape[1]
-        im_w_d = self.im_w_d
-        f = float(im_w_d) / im_w_c # scale factor
-        im_l = cv.resize(im_l, None, fx=f, fy=f, interpolation=cv.INTER_AREA)
-        im_r = cv.resize(im_r, None, fx=f, fy=f, interpolation=cv.INTER_AREA)
-        return im_l, im_r
 
 
     def im_draw_guide_line(self, im_l, im_r):
@@ -85,10 +74,6 @@ class Interface:
         im_r = cv.imread(im_path_r, -1)
         # Check that images have the same size
         assert(im_l.shape == im_r.shape)
-        # Create image window
-        #cv2.resizeWindow(WINDOW_NAME, 1000, 700)
-        # Resize images (from current to desired)
-        im_l, im_r = self.im_resize(im_l, im_r)
         # Augment images
         im_l, im_r = self.im_augmentation(im_l, im_r)
         return im_l, im_r

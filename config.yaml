@@ -14,7 +14,6 @@ key: # Interface keys
     magic: "m" # Magic labeling -> interpolation
 # Code configuration
 vis:
-    max_w_pxl: 800 # Max width for the visualizer in [pixels]
     guide: # Horizontal guide line
         thick_pxl: 1 # thickness
         color: [0, 255, 0] # [B, G, R]
