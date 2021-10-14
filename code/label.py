@@ -23,6 +23,10 @@ class Interface:
         self.key_id_next = c_keys["id_next"]
         self.key_readjust = c_keys["readjust"]
         self.key_magic = c_keys["magic"]
+        # Load visualization data
+        c_vis = config["vis"]
+        max_w_pxl = c_vis["max_w_pxl"]
+        self.im_w_d = int(max_w_pxl / 2)
         # Initialize
         self.ind_im = 0
         self.ind_class = 0
@@ -39,6 +43,14 @@ class Interface:
         im_path_r = self.im_path_r[self.ind_im]
         im_l = cv.imread(im_path_l, -1)
         im_r = cv.imread(im_path_r, -1)
+        # Check that images have the same size
+        assert(im_l.shape == im_r.shape)
+        # Resize images (from current to desired)
+        im_w_c = im_l.shape[1]
+        im_w_d = self.im_w_d
+        f = float(im_w_d) / im_w_c # scale factor
+        im_l = cv.resize(im_l, None, fx=f, fy=f, interpolation=cv.INTER_AREA)
+        im_r = cv.resize(im_r, None, fx=f, fy=f, interpolation=cv.INTER_AREA)
         # Stack images together
         stack = np.concatenate((im_l, im_r), axis=1)
         cv.imshow("Stereo match labeler", stack)

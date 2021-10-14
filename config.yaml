@@ -13,3 +13,5 @@ key: # Interface keys
     readjust: "r" # Use the arrow keys to readjust
     magic: "m" # Magic labeling -> interpolation
 # Code configuration
+vis:
+    max_w_pxl: 800 # Max width for the visualizer in [pixels]
