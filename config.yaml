@@ -4,3 +4,12 @@ data:
     subdir_stereo_l: "left"
     subdir_stereo_r: "right"
     im_format: ".png"
+key: # Interface keys
+    quit: "q"
+    im_prev: "a" # Go to previous image pair
+    im_next: "d" # Go to next image pair
+    id_prev: "s" # Go to previous id
+    id_next: "w" # Go to next id
+    readjust: "r" # Use the arrow keys to readjust
+    magic: "m" # Magic labeling -> interpolation
+# Code configuration
