@@ -1,3 +1,8 @@
+# Code default output dirs
+*left_kpts/
+*right_kpts/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
