@@ -17,3 +17,5 @@ vis:
     guide: # Horizontal guide line
         thick_pxl: 1 # thickness
         color: [0, 255, 0] # [B, G, R]
+    bar: # Status bar (at the bottom of the images)
+        bar_h_pxl: 50 # Bar height in pixels

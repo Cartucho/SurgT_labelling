@@ -28,6 +28,8 @@ class Interface:
         c_guide = c_vis["guide"]
         self.guide_t = c_guide["thick_pxl"]
         self.guide_c = c_guide["color"]
+        c_bar = c_vis["bar"]
+        self.bar_h_pxl = c_bar["bar_h_pxl"]
         # Initialize
         self.ind_im = 0
         self.ind_class = 0
@@ -79,6 +81,13 @@ class Interface:
         return im_l, im_r
 
 
+    def add_status_bar(self, stack):
+        # Make black rectangle
+        bar = np.zeros((self.bar_h_pxl, stack.shape[1], 3), dtype=stack.dtype)
+        stack = np.concatenate((stack, bar), axis=0)
+        return stack
+
+
     def main_loop(self, window_name):
         """ Interface's main loop """
         key_pressed = None
@@ -86,6 +95,8 @@ class Interface:
             im_l, im_r = self.im_get()
             # Stack images together
             stack = np.concatenate((im_l, im_r), axis=1)
+            # Add status bar in the bottom
+            stack = self.add_status_bar(stack)
             cv.imshow(window_name, stack)
             key_pressed = cv.waitKey(1)
         print("Finished")
