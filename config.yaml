@@ -19,3 +19,5 @@ vis:
         color: [0, 255, 0] # [B, G, R]
     bar: # Status bar (at the bottom of the images)
         h_pxl: 50 # Bar height in pixels
+        text_h_pxl: 25 # Text size, must be smaller than `h_pxl`
+        text_color: [255, 255, 255] # [B, G, R]

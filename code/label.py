@@ -30,11 +30,15 @@ class Interface:
         self.guide_c = c_guide["color"]
         c_bar = c_vis["bar"]
         self.h_pxl = c_bar["h_pxl"]
+        self.text_h_pxl = c_bar["text_h_pxl"]
+        self.text_c = c_bar["text_color"]
         # Initialize
         self.ind_im = 0
         self.ind_class = 0
         self.mouse_u = 0
         self.mouse_v = 0
+        self.n_im = -1
+
 
     def load_image_paths(self):
         im_l_path = os.path.join(self.dir_l, "*{}".format(self.im_format))
@@ -42,6 +46,7 @@ class Interface:
         im_r_path = os.path.join(self.dir_r, "*{}".format(self.im_format))
         self.im_path_r = natsorted(glob.glob(im_r_path))
         assert(len(self.im_path_l) == len(self.im_path_r))
+        self.n_im = len(self.im_path_l)
 
 
     def im_draw_guide_line(self, im_l, im_r):
@@ -81,9 +86,35 @@ class Interface:
         return im_l, im_r
 
 
+    def get_text_scale_to_fit_height(self, txt, font, thickness):
+        _, text_h = cv.getTextSize(txt, font, 1.0, thickness)[0]
+        scale = float(self.text_h_pxl) / text_h
+        return scale
+
+
+    def add_status_text(self, bar):
+        # Message
+        txt = ""
+        txt += "Im: [{}/{}]".format(self.ind_im, self.n_im)
+        txt += " Id: [{}]".format(self.ind_class)
+        # Text specifications
+        font = cv.FONT_HERSHEY_DUPLEX
+        thickness = 2
+        font_scale = self.get_text_scale_to_fit_height(txt, font, thickness)
+        color = np.array(self.text_c, dtype=np.uint8).tolist()
+        # Centre text vertically
+        bot = int(bar.shape[0] - (self.h_pxl - self.text_h_pxl) / 2.0)
+        left_bot = (0, bot) # (left, bottom) corner of the text
+        # Write text
+        cv.putText(bar, txt, left_bot, font, font_scale, color, thickness)
+        return bar
+
+
     def add_status_bar(self, stack):
         # Make black rectangle
         bar = np.zeros((self.h_pxl, stack.shape[1], 3), dtype=stack.dtype)
+        # Add text status to bar
+        bar = self.add_status_text(bar)
         stack = np.concatenate((stack, bar), axis=0)
         return stack
 
