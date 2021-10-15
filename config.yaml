@@ -4,6 +4,8 @@ data:
     subdir_stereo_l: "left"
     subdir_stereo_r: "right"
     im_format: ".png"
+    subdir_output_l: "left_kpts"
+    subdir_output_r: "right_kpts"
 key: # Interface keys
     quit: "q"
     im_prev: "a" # Go to previous image pair

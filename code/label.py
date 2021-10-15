@@ -14,6 +14,8 @@ class Interface:
         self.dir_l = os.path.join(self.dir_data, c_data["subdir_stereo_l"])
         self.dir_r = os.path.join(self.dir_data, c_data["subdir_stereo_r"])
         self.im_format = c_data["im_format"]
+        self.dir_out_l = os.path.join(self.dir_data, c_data["subdir_output_l"])
+        self.dir_out_r = os.path.join(self.dir_data, c_data["subdir_output_r"])
         # Load keys
         c_keys = config["key"]
         self.key_quit = c_keys["quit"]
@@ -40,6 +42,13 @@ class Interface:
         self.n_im = -1
         self.im_h = -1
         self.im_w = -1
+
+
+    def create_output_paths(self):
+        if not os.path.isdir(self.dir_out_l):
+            os.mkdir(self.dir_out_l)
+        if not os.path.isdir(self.dir_out_r):
+            os.mkdir(self.dir_out_r)
 
 
     def load_image_paths(self):
@@ -165,6 +174,7 @@ class Interface:
 
 def label_data(config):
     inter = Interface(config)
+    inter.create_output_paths()
     inter.load_image_paths()
     window_name = "Stereo match labeler"
     inter.create_window(window_name)
