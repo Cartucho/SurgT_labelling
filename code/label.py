@@ -34,7 +34,7 @@ class Interface:
         self.text_c = c_bar["text_color"]
         # Initialize
         self.ind_im = 0
-        self.ind_class = 0
+        self.ind_id = 0
         self.mouse_u = 0
         self.mouse_v = 0
         self.n_im = -1
@@ -96,7 +96,7 @@ class Interface:
         # Message
         txt = ""
         txt += "Im: [{}/{}]".format(self.ind_im, self.n_im - 1)
-        txt += " Id: [{}]".format(self.ind_class)
+        txt += " Id: [{}]".format(self.ind_id)
         # Text specifications
         font = cv.FONT_HERSHEY_DUPLEX
         thickness = 2
@@ -128,7 +128,12 @@ class Interface:
             self.ind_im -= 1
             if self.ind_im < 0:
                 self.ind_im = (self.n_im - 1)
-
+        elif key_pressed == ord(self.key_id_next):
+            self.ind_id += 1
+        elif key_pressed == ord(self.key_id_prev):
+            self.ind_id -=1
+            if self.ind_id < 0:
+                self.ind_id = 0
 
     def main_loop(self, window_name):
         """ Interface's main loop """
