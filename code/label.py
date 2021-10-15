@@ -38,6 +38,8 @@ class Interface:
         self.mouse_u = 0
         self.mouse_v = 0
         self.n_im = -1
+        self.im_h = -1
+        self.im_w = -1
 
 
     def load_image_paths(self):
@@ -80,7 +82,9 @@ class Interface:
         im_l = cv.imread(im_path_l, -1)
         im_r = cv.imread(im_path_r, -1)
         # Check that images have the same size
-        assert(im_l.shape == im_r.shape)
+        if (self.im_h != -1 and self.im_w != -1):
+            assert(im_l.shape[0] == im_r.shape[0] == self.im_h)
+            assert(im_l.shape[1] == im_r.shape[1] == self.im_w)
         # Augment images
         im_l, im_r = self.im_augmentation(im_l, im_r)
         return im_l, im_r
@@ -103,7 +107,7 @@ class Interface:
         font_scale = self.get_text_scale_to_fit_height(txt, font, thickness)
         color = np.array(self.text_c, dtype=np.uint8).tolist()
         # Centre text vertically
-        bot = int(bar.shape[0] - (self.h_pxl - self.text_h_pxl) / 2.0)
+        bot = int((self.h_pxl + self.text_h_pxl) / 2.0)
         left_bot = (0, bot) # (left, bottom) corner of the text
         # Write text
         cv.putText(bar, txt, left_bot, font, font_scale, color, thickness)
@@ -135,9 +139,16 @@ class Interface:
             if self.ind_id < 0:
                 self.ind_id = 0
 
+
+    def update_im_resolution(self):
+        im_l, _ = self.im_get()
+        self.im_h, self.im_w = im_l.shape[:2]
+
+
     def main_loop(self, window_name):
         """ Interface's main loop """
         key_pressed = None
+        self.update_im_resolution()
         while key_pressed != ord(self.key_quit):
             im_l, im_r = self.im_get()
             # Stack images together
