@@ -55,9 +55,11 @@ class Interface:
         line_thick = self.guide_t
         color = np.array(self.guide_c, dtype=np.uint8).tolist()
         v = self.mouse_v
-        width = im_l.shape[1]
-        im_l = cv.line(im_l, (0, v), (width, v), color, line_thick)
-        im_r = cv.line(im_r, (0, v), (width, v), color, line_thick)
+        im_l = cv.line(im_l, (0, v), (self.im_w, v), color, line_thick)
+        im_r = cv.line(im_r, (0, v), (self.im_w, v), color, line_thick)
+        u = self.mouse_u
+        im_l = cv.line(im_l, (u, 0), (u, self.im_h), color, line_thick)
+        im_r = cv.line(im_r, (u, 0), (u, self.im_h), color, line_thick)
         return im_l, im_r
 
 
