@@ -29,7 +29,7 @@ class Interface:
         self.guide_t = c_guide["thick_pxl"]
         self.guide_c = c_guide["color"]
         c_bar = c_vis["bar"]
-        self.bar_h_pxl = c_bar["bar_h_pxl"]
+        self.h_pxl = c_bar["h_pxl"]
         # Initialize
         self.ind_im = 0
         self.ind_class = 0
@@ -83,7 +83,7 @@ class Interface:
 
     def add_status_bar(self, stack):
         # Make black rectangle
-        bar = np.zeros((self.bar_h_pxl, stack.shape[1], 3), dtype=stack.dtype)
+        bar = np.zeros((self.h_pxl, stack.shape[1], 3), dtype=stack.dtype)
         stack = np.concatenate((stack, bar), axis=0)
         return stack
 
