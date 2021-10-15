@@ -75,7 +75,7 @@ class Interface:
 
 
     def im_get(self):
-        im_path_l = self.im_path_l[self.ind_im] # TODO: update ind_im carefully
+        im_path_l = self.im_path_l[self.ind_im]
         im_path_r = self.im_path_r[self.ind_im]
         im_l = cv.imread(im_path_l, -1)
         im_r = cv.imread(im_path_r, -1)
@@ -95,7 +95,7 @@ class Interface:
     def add_status_text(self, bar):
         # Message
         txt = ""
-        txt += "Im: [{}/{}]".format(self.ind_im, self.n_im)
+        txt += "Im: [{}/{}]".format(self.ind_im, self.n_im - 1)
         txt += " Id: [{}]".format(self.ind_class)
         # Text specifications
         font = cv.FONT_HERSHEY_DUPLEX
@@ -119,6 +119,17 @@ class Interface:
         return stack
 
 
+    def check_key_pressed(self, key_pressed):
+        if key_pressed == ord(self.key_im_next):
+            self.ind_im += 1
+            if self.ind_im > (self.n_im - 1):
+                self.ind_im = 0
+        elif key_pressed == ord(self.key_im_prev):
+            self.ind_im -= 1
+            if self.ind_im < 0:
+                self.ind_im = (self.n_im - 1)
+
+
     def main_loop(self, window_name):
         """ Interface's main loop """
         key_pressed = None
@@ -130,6 +141,7 @@ class Interface:
             stack = self.add_status_bar(stack)
             cv.imshow(window_name, stack)
             key_pressed = cv.waitKey(1)
+            self.check_key_pressed(key_pressed)
         print("Finished")
 
 
