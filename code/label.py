@@ -49,6 +49,25 @@ class ImageKptPairs:
 
 class Interface:
     def __init__(self, config):
+        self.load_data_config(config)
+        self.load_keys_config(config)
+        self.load_vis_config(config)
+        # Initialize
+        self.ind_im = 0
+        self.ind_id = 0
+        self.mouse_u = 0
+        self.mouse_v = 0
+        self.n_im = -1
+        self.im_h = -1
+        self.im_w = -1
+        self.im_l = None
+        self.im_r = None
+        self.im_l_a = None # Augmented images
+        self.im_r_a = None # Augmented images
+        self.kpt_pairs = ImageKptPairs(self.dir_out_l, self.dir_out_r)
+
+
+    def load_data_config(self, config):
         c_data = config["data"]
         self.dir_data = c_data["dir"]
         self.dir_l = os.path.join(self.dir_data, c_data["subdir_stereo_l"])
@@ -56,16 +75,9 @@ class Interface:
         self.im_format = c_data["im_format"]
         self.dir_out_l = os.path.join(self.dir_data, c_data["subdir_output_l"])
         self.dir_out_r = os.path.join(self.dir_data, c_data["subdir_output_r"])
-        # Load keys
-        c_keys = config["key"]
-        self.key_quit = c_keys["quit"]
-        self.key_im_prev = c_keys["im_prev"]
-        self.key_im_next = c_keys["im_next"]
-        self.key_id_prev = c_keys["id_prev"]
-        self.key_id_next = c_keys["id_next"]
-        self.key_readjust = c_keys["readjust"]
-        self.key_magic = c_keys["magic"]
-        # Load visualization data
+
+
+    def load_vis_config(self, config):
         c_vis = config["vis"]
         self.window_name = c_vis["window_name"]
         c_guide = c_vis["guide"]
@@ -81,19 +93,17 @@ class Interface:
         self.kpt_c_size_pxl = c_kpt["c_size_pxl"]
         self.kpt_color = c_kpt["color"]
         self.kpt_s_thick_pxl = c_kpt["s_thick_pxl"]
-        # Initialize
-        self.ind_im = 0
-        self.ind_id = 0
-        self.mouse_u = 0
-        self.mouse_v = 0
-        self.n_im = -1
-        self.im_h = -1
-        self.im_w = -1
-        self.im_l = None
-        self.im_r = None
-        self.im_l_a = None # Augmented images
-        self.im_r_a = None # Augmented images
-        self.kpt_pairs = ImageKptPairs(self.dir_out_l, self.dir_out_r)
+
+
+    def load_keys_config(self, config):
+        c_keys = config["key"]
+        self.key_quit = c_keys["quit"]
+        self.key_im_prev = c_keys["im_prev"]
+        self.key_im_next = c_keys["im_next"]
+        self.key_id_prev = c_keys["id_prev"]
+        self.key_id_next = c_keys["id_next"]
+        self.key_readjust = c_keys["readjust"]
+        self.key_magic = c_keys["magic"]
 
 
     def load_image_paths(self):
