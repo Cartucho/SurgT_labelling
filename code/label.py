@@ -32,10 +32,10 @@ class Interface:
         self.guide_t = c_guide["thick_pxl"]
         self.guide_c = c_guide["color"]
         c_bar = c_vis["bar"]
-        self.h_pxl = c_bar["h_pxl"]
-        self.m_l_pxl = c_bar["m_l_pxl"]
-        self.text_h_pxl = c_bar["text_h_pxl"]
-        self.text_c = c_bar["text_color"]
+        self.bar_h_pxl = c_bar["h_pxl"]
+        self.bar_m_l_pxl = c_bar["m_l_pxl"]
+        self.bar_text_h_pxl = c_bar["text_h_pxl"]
+        self.bar_text_c = c_bar["text_color"]
         # Initialize
         self.ind_im = 0
         self.ind_id = 0
@@ -109,7 +109,7 @@ class Interface:
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
         _, text_h = cv.getTextSize(txt, font, 1.0, thickness)[0]
-        scale = float(self.text_h_pxl) / text_h
+        scale = float(self.bar_text_h_pxl) / text_h
         return scale
 
 
@@ -122,10 +122,10 @@ class Interface:
         font = cv.FONT_HERSHEY_DUPLEX
         thickness = 2
         font_scale = self.get_text_scale_to_fit_height(txt, font, thickness)
-        color = np.array(self.text_c, dtype=np.uint8).tolist()
+        color = np.array(self.bar_text_c, dtype=np.uint8).tolist()
         # Centre text vertically
-        bot = int((self.h_pxl + self.text_h_pxl) / 2.0)
-        left_bot = (self.m_l_pxl, bot) # (left, bottom) corner of the text
+        bot = int((self.bar_h_pxl + self.bar_text_h_pxl) / 2.0)
+        left_bot = (self.bar_m_l_pxl, bot) # (left, bottom) corner of the text
         # Write text
         cv.putText(bar, txt, left_bot, font, font_scale, color, thickness)
         return bar
@@ -133,7 +133,7 @@ class Interface:
 
     def add_status_bar(self, stack):
         # Make black rectangle
-        bar = np.zeros((self.h_pxl, stack.shape[1], 3), dtype=stack.dtype)
+        bar = np.zeros((self.bar_h_pxl, stack.shape[1], 3), dtype=stack.dtype)
         # Add text status to bar
         bar = self.add_status_text(bar)
         stack = np.concatenate((stack, bar), axis=0)
