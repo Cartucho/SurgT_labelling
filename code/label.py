@@ -7,10 +7,8 @@ from pathlib import Path
 from code import utils
 
 
-
-
-class ImageKptPairs:
-    def __init__(self , dir_out_l, dir_out_r):
+class Keypoints:
+    def __init__(self, dir_out_l, dir_out_r):
         self.kpts_l = {}
         self.kpts_r = {}
         self.dir_out_l = dir_out_l
@@ -47,6 +45,8 @@ class ImageKptPairs:
         assert(len(self.kpts_l) == len(self.kpts_r))
 
 
+
+
 class Images:
     def __init__(self, dir_l, dir_r, im_format):
         path_l = os.path.join(dir_l, "*{}".format(im_format))
@@ -54,18 +54,22 @@ class Images:
         self.im_path_l = natsorted(glob.glob(path_l))
         self.im_path_r = natsorted(glob.glob(path_r))
         assert(len(self.im_path_l) == len(self.im_path_r))
+        # Initialization
+        self.im_h = -1
+        self.im_w = -1
+        self.n_im = len(self.im_path_l)
 
 
     def get_n_im(self):
-        return len(self.im_path_l)
+        return self.n_im
 
 
-    def get_im_pair(self, ind_im):
-        im_path_l = self.im_path_l[ind_im]
-        im_path_r = self.im_path_r[ind_im]
-        im_l = cv.imread(im_path_l, -1)
-        im_r = cv.imread(im_path_r, -1)
-        return im_l, im_r
+    def get_resolution(self):
+        return self.im_h, self.im_w
+
+
+    def get_im_pair(self):
+        return self.im_l, self.im_r
 
 
     def get_im_pair_name(self, ind_im):
@@ -75,46 +79,48 @@ class Images:
         return im_name_l
 
 
-class Data:
+    def im_update(self, ind_im):
+        im_path_l = self.im_path_l[ind_im]
+        im_path_r = self.im_path_r[ind_im]
+        self.im_l = cv.imread(im_path_l, -1)
+        self.im_r = cv.imread(im_path_r, -1)
+        if (self.im_h != -1 and self.im_w != -1):
+            # Check that images have the same size
+            assert(self.im_l.shape[0] == self.im_r.shape[0] == self.im_h)
+            assert(self.im_l.shape[1] == self.im_r.shape[1] == self.im_w)
+        else:
+            self.im_h, self.im_w = self.im_l.shape[:2]
+
+
+class Draw:
     def __init__(self, config):
+        self.ind_im = 0
+        self.ind_id = 0
         self.load_data_config(config)
-        self.Images = Images(self.dir_l, self.dir_r, self.im_format)
-        self.KptPairs = ImageKptPairs(self.dir_out_l, self.dir_out_r)
+        self.load_vis_config(config)
+        self.mouse_u = 0
+        self.mouse_v = 0
+        self.im_l_a = None # Augmented image - left
+        self.im_r_a = None # Augmented image - right
+        self.initialize_im()
 
 
     def load_data_config(self, config):
         c_data = config["data"]
         self.dir_data = c_data["dir"]
-        self.dir_l = os.path.join(self.dir_data, c_data["subdir_stereo_l"])
-        self.dir_r = os.path.join(self.dir_data, c_data["subdir_stereo_r"])
-        self.im_format = c_data["im_format"]
-        self.dir_out_l = os.path.join(self.dir_data, c_data["subdir_output_l"])
-        self.dir_out_r = os.path.join(self.dir_data, c_data["subdir_output_r"])
-
-
-
-class Interface:
-    def __init__(self, config):
-        self.load_keys_config(config)
-        self.load_vis_config(config)
-        self.Data = Data(config)
-        # Initialize
-        self.ind_im = 0
-        self.ind_id = 0
-        self.mouse_u = 0
-        self.mouse_v = 0
-        self.n_im = self.Data.Images.get_n_im()
-        self.im_h = -1
-        self.im_w = -1
-        self.im_l = None
-        self.im_r = None
-        self.im_l_a = None # Augmented images
-        self.im_r_a = None # Augmented images
+        # Images
+        dir_l = os.path.join(self.dir_data, c_data["subdir_stereo_l"])
+        dir_r = os.path.join(self.dir_data, c_data["subdir_stereo_r"])
+        im_format = c_data["im_format"]
+        self.Images = Images(dir_l, dir_r, im_format)
+        # Keypoints
+        dir_out_l = os.path.join(self.dir_data, c_data["subdir_output_l"])
+        dir_out_r = os.path.join(self.dir_data, c_data["subdir_output_r"])
+        self.Keypoints = Keypoints(dir_out_l, dir_out_r)
 
 
     def load_vis_config(self, config):
         c_vis = config["vis"]
-        self.window_name = c_vis["window_name"]
         c_guide = c_vis["guide"]
         self.guide_t = c_guide["thick_pxl"]
         self.guide_c = c_guide["color"]
@@ -130,15 +136,13 @@ class Interface:
         self.kpt_s_thick_pxl = c_kpt["s_thick_pxl"]
 
 
-    def load_keys_config(self, config):
-        c_keys = config["key"]
-        self.key_quit = c_keys["quit"]
-        self.key_im_prev = c_keys["im_prev"]
-        self.key_im_next = c_keys["im_next"]
-        self.key_id_prev = c_keys["id_prev"]
-        self.key_id_next = c_keys["id_next"]
-        self.key_readjust = c_keys["readjust"]
-        self.key_magic = c_keys["magic"]
+    def initialize_im(self):
+        self.n_im = self.Images.get_n_im()
+        self.Images.im_update(self.ind_im)
+        self.im_h, self.im_w = self.Images.get_resolution()
+        self.copy_images()
+        self.load_kpt_data()
+        self.im_draw_all_kpts()
 
 
     def im_draw_guide_line(self):
@@ -176,27 +180,23 @@ class Interface:
 
 
     def im_draw_all_kpts(self):
-        kpts_l, kpts_r = self.Data.KptPairs.get_kpts()
+        kpts_l, kpts_r = self.Keypoints.get_kpts()
         for kpt_l_key, kpt_l_val in kpts_l.items():
             kpt_r_val = kpts_r[kpt_l_key]
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
 
 
-    def im_augmentation(self):
-        self.copy_images()
-        self.im_draw_guide_line()
-        self.im_draw_all_kpts()
-
-
-    def mouse_listener(self, event, x, y, flags, param):
+    def mouse_moved(self, x, y):
         self.mouse_u = x
         self.mouse_v = y
-        self.im_augmentation()
+        self.update_im_augmentation()
 
 
-    def create_window(self):
-        cv.namedWindow(self.window_name, cv.WINDOW_KEEPRATIO)
-        cv.setMouseCallback(self.window_name, self.mouse_listener)
+    def update_im_augmentation(self):
+        self.copy_images()
+        self.im_draw_guide_line()
+        self.load_kpt_data()
+        self.im_draw_all_kpts()
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
@@ -223,75 +223,110 @@ class Interface:
         return bar
 
 
-    def add_status_bar(self, stack):
+    def add_status_bar(self, draw):
         # Make black rectangle
-        bar = np.zeros((self.bar_h_pxl, stack.shape[1], 3), dtype=stack.dtype)
+        bar = np.zeros((self.bar_h_pxl, draw.shape[1], 3), dtype=draw.dtype)
         # Add text status to bar
         bar = self.add_status_text(bar)
-        stack = np.concatenate((stack, bar), axis=0)
-        return stack
+        draw = np.concatenate((draw, bar), axis=0)
+        return draw
 
 
-    def im_update(self):
-        self.im_l, self.im_r = self.Data.Images.get_im_pair(self.ind_im)
-        if (self.im_h != -1 and self.im_w != -1):
-            # Check that images have the same size
-            assert(self.im_l.shape[0] == self.im_r.shape[0] == self.im_h)
-            assert(self.im_l.shape[1] == self.im_r.shape[1] == self.im_w)
-        self.copy_images()
-        self.load_kpt_data()
-        self.im_draw_all_kpts()
+    def copy_images(self):
+        im_l, im_r = self.Images.get_im_pair()
+        self.im_l_a = np.copy(im_l)
+        self.im_r_a = np.copy(im_r)
+
+
+    def load_kpt_data(self):
+        im_name = self.Images.get_im_pair_name(self.ind_im)
+        self.Keypoints.update_ktp_pairs(im_name)
+
+
+    def im_next(self):
+        self.ind_im += 1
+        if self.ind_im > (self.n_im - 1):
+            self.ind_im = 0
+        self.Images.im_update(self.ind_im)
+        self.update_im_augmentation()
+
+
+    def im_prev(self):
+        self.ind_im -= 1
+        if self.ind_im < 0:
+            self.ind_im = (self.n_im - 1)
+        self.Images.im_update(self.ind_im)
+        self.update_im_augmentation()
+
+
+    def id_next(self):
+        self.ind_id += 1
+
+
+    def id_prev(self):
+        self.ind_id -=1
+        if self.ind_id < 0:
+            self.ind_id = 0
+
+
+    def get_draw(self):
+        # Stack images together
+        draw = np.concatenate((self.im_l_a, self.im_r_a), axis=1)
+        # Add status bar in the bottom
+        draw = self.add_status_bar(draw)
+        return draw
+
+
+class Interface:
+    def __init__(self, config):
+        self.load_keys_config(config)
+        self.Draw = Draw(config)
+        c_vis = config["vis"]
+        self.window_name = c_vis["window_name"]
+        self.create_window()
+
+
+    def load_keys_config(self, config):
+        c_keys = config["key"]
+        self.key_quit = c_keys["quit"]
+        self.key_im_prev = c_keys["im_prev"]
+        self.key_im_next = c_keys["im_next"]
+        self.key_id_prev = c_keys["id_prev"]
+        self.key_id_next = c_keys["id_next"]
+        self.key_readjust = c_keys["readjust"]
+        self.key_magic = c_keys["magic"]
+
+
+    def mouse_listener(self, event, x, y, flags, param):
+        self.Draw.mouse_moved(x, y)
+
+
+    def create_window(self):
+        cv.namedWindow(self.window_name, cv.WINDOW_KEEPRATIO)
+        cv.setMouseCallback(self.window_name, self.mouse_listener)
 
 
     def check_key_pressed(self, key_pressed):
         if key_pressed == ord(self.key_im_next):
-            self.ind_im += 1
-            if self.ind_im > (self.n_im - 1):
-                self.ind_im = 0
-            self.im_update()
+            self.Draw.im_next()
         elif key_pressed == ord(self.key_im_prev):
-            self.ind_im -= 1
-            if self.ind_im < 0:
-                self.ind_im = (self.n_im - 1)
-            self.im_update()
+            self.Draw.im_prev()
         elif key_pressed == ord(self.key_id_next):
-            self.ind_id += 1
+            self.Draw.id_next()
         elif key_pressed == ord(self.key_id_prev):
-            self.ind_id -=1
-            if self.ind_id < 0:
-                self.ind_id = 0
-
-
-    def initialize_im(self):
-        self.im_update()
-        self.im_h, self.im_w = self.im_l.shape[:2]
-
-
-    def copy_images(self):
-        self.im_l_a = np.copy(self.im_l)
-        self.im_r_a = np.copy(self.im_r)
-
-
-    def load_kpt_data(self):
-        im_name = self.Data.Images.get_im_pair_name(self.ind_im)
-        self.Data.KptPairs.update_ktp_pairs(im_name)
+            self.Draw.id_prev()
 
 
     def main_loop(self):
         """ Interface's main loop """
         key_pressed = None
-        self.initialize_im()
         while key_pressed != ord(self.key_quit):
-            # Stack images together
-            stack = np.concatenate((self.im_l_a, self.im_r_a), axis=1)
-            # Add status bar in the bottom
-            stack = self.add_status_bar(stack)
-            cv.imshow(self.window_name, stack)
+            draw = self.Draw.get_draw()
+            cv.imshow(self.window_name, draw)
             key_pressed = cv.waitKey(1)
             self.check_key_pressed(key_pressed)
 
 
 def label_data(config):
     inter = Interface(config)
-    inter.create_window()
     inter.main_loop()
