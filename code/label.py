@@ -47,24 +47,39 @@ class ImageKptPairs:
         assert(len(self.kpts_l) == len(self.kpts_r))
 
 
-class Interface:
+class Images:
+    def __init__(self, dir_l, dir_r, im_format):
+        path_l = os.path.join(dir_l, "*{}".format(im_format))
+        path_r = os.path.join(dir_r, "*{}".format(im_format))
+        self.im_path_l = natsorted(glob.glob(path_l))
+        self.im_path_r = natsorted(glob.glob(path_r))
+        assert(len(self.im_path_l) == len(self.im_path_r))
+
+
+    def get_n_im(self):
+        return len(self.im_path_l)
+
+
+    def get_im_pair(self, ind_im):
+        im_path_l = self.im_path_l[ind_im]
+        im_path_r = self.im_path_r[ind_im]
+        im_l = cv.imread(im_path_l, -1)
+        im_r = cv.imread(im_path_r, -1)
+        return im_l, im_r
+
+
+    def get_im_pair_name(self, ind_im):
+        im_name_l = Path(self.im_path_l[ind_im]).stem
+        im_name_r = Path(self.im_path_r[ind_im]).stem
+        assert(im_name_l == im_name_r)
+        return im_name_l
+
+
+class Data:
     def __init__(self, config):
         self.load_data_config(config)
-        self.load_keys_config(config)
-        self.load_vis_config(config)
-        # Initialize
-        self.ind_im = 0
-        self.ind_id = 0
-        self.mouse_u = 0
-        self.mouse_v = 0
-        self.n_im = -1
-        self.im_h = -1
-        self.im_w = -1
-        self.im_l = None
-        self.im_r = None
-        self.im_l_a = None # Augmented images
-        self.im_r_a = None # Augmented images
-        self.kpt_pairs = ImageKptPairs(self.dir_out_l, self.dir_out_r)
+        self.Images = Images(self.dir_l, self.dir_r, self.im_format)
+        self.KptPairs = ImageKptPairs(self.dir_out_l, self.dir_out_r)
 
 
     def load_data_config(self, config):
@@ -75,6 +90,26 @@ class Interface:
         self.im_format = c_data["im_format"]
         self.dir_out_l = os.path.join(self.dir_data, c_data["subdir_output_l"])
         self.dir_out_r = os.path.join(self.dir_data, c_data["subdir_output_r"])
+
+
+
+class Interface:
+    def __init__(self, config):
+        self.load_keys_config(config)
+        self.load_vis_config(config)
+        self.Data = Data(config)
+        # Initialize
+        self.ind_im = 0
+        self.ind_id = 0
+        self.mouse_u = 0
+        self.mouse_v = 0
+        self.n_im = self.Data.Images.get_n_im()
+        self.im_h = -1
+        self.im_w = -1
+        self.im_l = None
+        self.im_r = None
+        self.im_l_a = None # Augmented images
+        self.im_r_a = None # Augmented images
 
 
     def load_vis_config(self, config):
@@ -104,15 +139,6 @@ class Interface:
         self.key_id_next = c_keys["id_next"]
         self.key_readjust = c_keys["readjust"]
         self.key_magic = c_keys["magic"]
-
-
-    def load_image_paths(self):
-        im_l_path = os.path.join(self.dir_l, "*{}".format(self.im_format))
-        self.im_path_l = natsorted(glob.glob(im_l_path))
-        im_r_path = os.path.join(self.dir_r, "*{}".format(self.im_format))
-        self.im_path_r = natsorted(glob.glob(im_r_path))
-        assert(len(self.im_path_l) == len(self.im_path_r))
-        self.n_im = len(self.im_path_l)
 
 
     def im_draw_guide_line(self):
@@ -150,11 +176,10 @@ class Interface:
 
 
     def im_draw_all_kpts(self):
-        if self.kpt_pairs is not None:
-            kpts_l, kpts_r = self.kpt_pairs.get_kpts()
-            for kpt_l_key, kpt_l_val in kpts_l.items():
-                kpt_r_val = kpts_r[kpt_l_key]
-                self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
+        kpts_l, kpts_r = self.Data.KptPairs.get_kpts()
+        for kpt_l_key, kpt_l_val in kpts_l.items():
+            kpt_r_val = kpts_r[kpt_l_key]
+            self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
 
 
     def im_augmentation(self):
@@ -172,20 +197,6 @@ class Interface:
     def create_window(self):
         cv.namedWindow(self.window_name, cv.WINDOW_KEEPRATIO)
         cv.setMouseCallback(self.window_name, self.mouse_listener)
-
-
-    def im_update(self):
-        im_path_l = self.im_path_l[self.ind_im]
-        im_path_r = self.im_path_r[self.ind_im]
-        self.im_l = cv.imread(im_path_l, -1)
-        self.im_r = cv.imread(im_path_r, -1)
-        self.copy_images()
-        self.load_kpt_data()
-        self.im_draw_all_kpts()
-        if (self.im_h != -1 and self.im_w != -1):
-            # Check that images have the same size
-            assert(self.im_l.shape[0] == self.im_r.shape[0] == self.im_h)
-            assert(self.im_l.shape[1] == self.im_r.shape[1] == self.im_w)
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
@@ -221,6 +232,17 @@ class Interface:
         return stack
 
 
+    def im_update(self):
+        self.im_l, self.im_r = self.Data.Images.get_im_pair(self.ind_im)
+        if (self.im_h != -1 and self.im_w != -1):
+            # Check that images have the same size
+            assert(self.im_l.shape[0] == self.im_r.shape[0] == self.im_h)
+            assert(self.im_l.shape[1] == self.im_r.shape[1] == self.im_w)
+        self.copy_images()
+        self.load_kpt_data()
+        self.im_draw_all_kpts()
+
+
     def check_key_pressed(self, key_pressed):
         if key_pressed == ord(self.key_im_next):
             self.ind_im += 1
@@ -240,7 +262,7 @@ class Interface:
                 self.ind_id = 0
 
 
-    def update_im_resolution(self):
+    def initialize_im(self):
         self.im_update()
         self.im_h, self.im_w = self.im_l.shape[:2]
 
@@ -250,22 +272,15 @@ class Interface:
         self.im_r_a = np.copy(self.im_r)
 
 
-    def get_current_im_names(self):
-        im_name_l = Path(self.im_path_l[self.ind_im]).stem
-        im_name_r = Path(self.im_path_r[self.ind_im]).stem
-        return im_name_l, im_name_r
-
-
     def load_kpt_data(self):
-        im_name_l, im_name_r = self.get_current_im_names()
-        assert(im_name_l == im_name_r)
-        self.kpt_pairs.update_ktp_pairs(im_name_l)
+        im_name = self.Data.Images.get_im_pair_name(self.ind_im)
+        self.Data.KptPairs.update_ktp_pairs(im_name)
 
 
     def main_loop(self):
         """ Interface's main loop """
         key_pressed = None
-        self.update_im_resolution()
+        self.initialize_im()
         while key_pressed != ord(self.key_quit):
             # Stack images together
             stack = np.concatenate((self.im_l_a, self.im_r_a), axis=1)
@@ -278,6 +293,5 @@ class Interface:
 
 def label_data(config):
     inter = Interface(config)
-    inter.load_image_paths()
     inter.create_window()
     inter.main_loop()
