@@ -18,7 +18,7 @@ key: # Interface keys
 vis:
     window_name: "Stereo-matches labeler"
     guide: # Horizontal guide line
-        thick_pxl: 1 # thickness
+        thick_pxl: 1 # thickness in [pixels]
         color: [0, 255, 0] # [B, G, R]
     bar: # Status bar (at the bottom of the images)
         h_pxl: 50 # Bar height in [pixels]
