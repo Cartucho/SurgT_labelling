@@ -9,17 +9,20 @@ from code import utils
 
 
 
-class StereoKpts:
-    def __init__(self, im_name, dir_out_l, dir_out_r):
+class ImageKpts:
+    def __init__(self , dir_out_l, dir_out_r):
         self.kpts_l = {}
         self.kpts_r = {}
-        #self.im_name = im_name
-        #self.dir_out_l = dir_out_l
-        #self.dir_out_r = dir_out_r
-        name_file = "{}.yaml".format(im_name)
-        self.path_l = os.path.join(dir_out_l, name_file)
-        self.path_r = os.path.join(dir_out_r, name_file)
-        self.load_kpts_from_output_subdirs()
+        self.dir_out_l = dir_out_l
+        self.dir_out_r = dir_out_r
+        self.create_output_paths()
+
+
+    def create_output_paths(self):
+        if not os.path.isdir(self.dir_out_l):
+            os.mkdir(self.dir_out_l)
+        if not os.path.isdir(self.dir_out_r):
+            os.mkdir(self.dir_out_r)
 
 
     def get_kpts(self):
@@ -33,9 +36,14 @@ class StereoKpts:
         return utils.load_yaml_data(path)
 
 
-    def load_kpts_from_output_subdirs(self):
-        self.kpts_l = self.load_kpts_from_file(self.path_l)
-        self.kpts_r = self.load_kpts_from_file(self.path_r)
+    def update_ktps(self, im_name):
+        self.kpts_l = {}
+        self.kpts_r = {}
+        name_file = "{}.yaml".format(im_name)
+        path_l = os.path.join(self.dir_out_l, name_file)
+        path_r = os.path.join(self.dir_out_r, name_file)
+        self.kpts_l = self.load_kpts_from_file(path_l)
+        self.kpts_r = self.load_kpts_from_file(path_r)
         assert(len(self.kpts_l) == len(self.kpts_r))
 
 
@@ -85,14 +93,7 @@ class Interface:
         self.im_r = None
         self.im_l_a = None # Augmented images
         self.im_r_a = None # Augmented images
-        self.kpts = None
-
-
-    def create_output_paths(self):
-        if not os.path.isdir(self.dir_out_l):
-            os.mkdir(self.dir_out_l)
-        if not os.path.isdir(self.dir_out_r):
-            os.mkdir(self.dir_out_r)
+        self.kpts = ImageKpts(self.dir_out_l, self.dir_out_r)
 
 
     def load_image_paths(self):
@@ -246,10 +247,9 @@ class Interface:
 
 
     def load_kpt_data(self):
-        self.kpts = None
         im_name_l, im_name_r = self.get_current_im_names()
         assert(im_name_l == im_name_r)
-        self.kpts = StereoKpts(im_name_l, self.dir_out_l, self.dir_out_r)
+        self.kpts.update_ktps(im_name_l)
 
 
     def main_loop(self):
@@ -268,7 +268,6 @@ class Interface:
 
 def label_data(config):
     inter = Interface(config)
-    inter.create_output_paths()
     inter.load_image_paths()
     inter.create_window()
     inter.main_loop()
