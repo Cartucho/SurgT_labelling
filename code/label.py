@@ -183,7 +183,6 @@ class Interface:
             cv.imshow(self.window_name, stack)
             key_pressed = cv.waitKey(1)
             self.check_key_pressed(key_pressed)
-        print("Finished")
 
 
 def label_data(config):
