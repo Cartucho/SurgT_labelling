@@ -108,11 +108,11 @@ class Interface:
         line_thick = self.guide_t
         color = np.array(self.guide_c, dtype=np.uint8).tolist()
         v = self.mouse_v
-        im_l = cv.line(self.im_l_a, (0, v), (self.im_w, v), color, line_thick)
-        im_r = cv.line(self.im_r_a, (0, v), (self.im_w, v), color, line_thick)
+        cv.line(self.im_l_a, (0, v), (self.im_w, v), color, line_thick)
+        cv.line(self.im_r_a, (0, v), (self.im_w, v), color, line_thick)
         u = self.mouse_u
-        im_l = cv.line(self.im_l_a, (u, 0), (u, self.im_h), color, line_thick)
-        im_r = cv.line(self.im_r_a, (u, 0), (u, self.im_h), color, line_thick)
+        cv.line(self.im_l_a, (u, 0), (u, self.im_h), color, line_thick)
+        cv.line(self.im_r_a, (u, 0), (u, self.im_h), color, line_thick)
 
 
     def im_draw_kpt_cross(self, im, u, v, color):
