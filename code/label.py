@@ -9,7 +9,7 @@ from code import utils
 
 
 
-class ImageKpts:
+class ImageKptPairs:
     def __init__(self , dir_out_l, dir_out_r):
         self.kpts_l = {}
         self.kpts_r = {}
@@ -36,7 +36,7 @@ class ImageKpts:
         return utils.load_yaml_data(path)
 
 
-    def update_ktps(self, im_name):
+    def update_ktp_pairs(self, im_name):
         self.kpts_l = {}
         self.kpts_r = {}
         name_file = "{}.yaml".format(im_name)
@@ -93,7 +93,7 @@ class Interface:
         self.im_r = None
         self.im_l_a = None # Augmented images
         self.im_r_a = None # Augmented images
-        self.kpts = ImageKpts(self.dir_out_l, self.dir_out_r)
+        self.kpt_pairs = ImageKptPairs(self.dir_out_l, self.dir_out_r)
 
 
     def load_image_paths(self):
@@ -140,8 +140,8 @@ class Interface:
 
 
     def im_draw_all_kpts(self):
-        if self.kpts is not None:
-            kpts_l, kpts_r = self.kpts.get_kpts()
+        if self.kpt_pairs is not None:
+            kpts_l, kpts_r = self.kpt_pairs.get_kpts()
             for kpt_l_key, kpt_l_val in kpts_l.items():
                 kpt_r_val = kpts_r[kpt_l_key]
                 self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
@@ -249,7 +249,7 @@ class Interface:
     def load_kpt_data(self):
         im_name_l, im_name_r = self.get_current_im_names()
         assert(im_name_l == im_name_r)
-        self.kpts.update_ktps(im_name_l)
+        self.kpt_pairs.update_ktp_pairs(im_name_l)
 
 
     def main_loop(self):
