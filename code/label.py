@@ -75,7 +75,7 @@ class Interface:
 
 
     def im_augmentation(self, im_l, im_r):
-        self.im_draw_guide_line(im_l, im_r)
+        im_l, im_r = self.im_draw_guide_line(im_l, im_r)
         return im_l, im_r
 
 
@@ -94,12 +94,10 @@ class Interface:
         im_path_r = self.im_path_r[self.ind_im]
         im_l = cv.imread(im_path_l, -1)
         im_r = cv.imread(im_path_r, -1)
-        # Check that images have the same size
         if (self.im_h != -1 and self.im_w != -1):
+            # Check that images have the same size
             assert(im_l.shape[0] == im_r.shape[0] == self.im_h)
             assert(im_l.shape[1] == im_r.shape[1] == self.im_w)
-        # Augment images
-        im_l, im_r = self.im_augmentation(im_l, im_r)
         return im_l, im_r
 
 
@@ -164,6 +162,8 @@ class Interface:
         self.update_im_resolution()
         while key_pressed != ord(self.key_quit):
             im_l, im_r = self.im_get()
+            # Augment images
+            im_l, im_r = self.im_augmentation(im_l, im_r)
             # Stack images together
             stack = np.concatenate((im_l, im_r), axis=1)
             # Add status bar in the bottom
