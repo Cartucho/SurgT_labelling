@@ -27,6 +27,7 @@ class Interface:
         self.key_magic = c_keys["magic"]
         # Load visualization data
         c_vis = config["vis"]
+        self.window_name = c_vis["window_name"]
         c_guide = c_vis["guide"]
         self.guide_t = c_guide["thick_pxl"]
         self.guide_c = c_guide["color"]
@@ -82,9 +83,9 @@ class Interface:
         self.mouse_v = y
 
 
-    def create_window(self, window_name):
-        cv.namedWindow(window_name, cv.WINDOW_KEEPRATIO)
-        cv.setMouseCallback(window_name, self.mouse_listener)
+    def create_window(self):
+        cv.namedWindow(self.window_name, cv.WINDOW_KEEPRATIO)
+        cv.setMouseCallback(self.window_name, self.mouse_listener)
 
 
     def im_get(self):
@@ -166,7 +167,7 @@ class Interface:
             stack = np.concatenate((im_l, im_r), axis=1)
             # Add status bar in the bottom
             stack = self.add_status_bar(stack)
-            cv.imshow(window_name, stack)
+            cv.imshow(self.window_name, stack)
             key_pressed = cv.waitKey(1)
             self.check_key_pressed(key_pressed)
         print("Finished")
@@ -176,6 +177,5 @@ def label_data(config):
     inter = Interface(config)
     inter.create_output_paths()
     inter.load_image_paths()
-    window_name = "Stereo match labeler"
-    inter.create_window(window_name)
-    inter.main_loop(window_name)
+    inter.create_window()
+    inter.main_loop()

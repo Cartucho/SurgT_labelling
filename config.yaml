@@ -16,6 +16,7 @@ key: # Interface keys
     magic: "m" # Magic labeling -> interpolation
 # Code configuration
 vis:
+    window_name: "Stereo-matches labeler"
     guide: # Horizontal guide line
         thick_pxl: 1 # thickness
         color: [0, 255, 0] # [B, G, R]
