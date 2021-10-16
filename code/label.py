@@ -33,6 +33,7 @@ class Interface:
         self.guide_c = c_guide["color"]
         c_bar = c_vis["bar"]
         self.h_pxl = c_bar["h_pxl"]
+        self.m_l_pxl = c_bar["m_l_pxl"]
         self.text_h_pxl = c_bar["text_h_pxl"]
         self.text_c = c_bar["text_color"]
         # Initialize
@@ -120,7 +121,7 @@ class Interface:
         color = np.array(self.text_c, dtype=np.uint8).tolist()
         # Centre text vertically
         bot = int((self.h_pxl + self.text_h_pxl) / 2.0)
-        left_bot = (0, bot) # (left, bottom) corner of the text
+        left_bot = (self.m_l_pxl, bot) # (left, bottom) corner of the text
         # Write text
         cv.putText(bar, txt, left_bot, font, font_scale, color, thickness)
         return bar
