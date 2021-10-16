@@ -44,6 +44,10 @@ class Interface:
         self.n_im = -1
         self.im_h = -1
         self.im_w = -1
+        self.im_l = None
+        self.im_r = None
+        self.im_l_a = None # Augmented images
+        self.im_r_a = None # Augmented images
 
 
     def create_output_paths(self):
@@ -62,26 +66,28 @@ class Interface:
         self.n_im = len(self.im_path_l)
 
 
-    def im_draw_guide_line(self, im_l, im_r):
+    def im_draw_guide_line(self):
         line_thick = self.guide_t
         color = np.array(self.guide_c, dtype=np.uint8).tolist()
         v = self.mouse_v
-        im_l = cv.line(im_l, (0, v), (self.im_w, v), color, line_thick)
-        im_r = cv.line(im_r, (0, v), (self.im_w, v), color, line_thick)
+        im_l = cv.line(self.im_l_a, (0, v), (self.im_w, v), color, line_thick)
+        im_r = cv.line(self.im_r_a, (0, v), (self.im_w, v), color, line_thick)
         u = self.mouse_u
-        im_l = cv.line(im_l, (u, 0), (u, self.im_h), color, line_thick)
-        im_r = cv.line(im_r, (u, 0), (u, self.im_h), color, line_thick)
-        return im_l, im_r
+        im_l = cv.line(self.im_l_a, (u, 0), (u, self.im_h), color, line_thick)
+        im_r = cv.line(self.im_r_a, (u, 0), (u, self.im_h), color, line_thick)
 
 
-    def im_augmentation(self, im_l, im_r):
-        im_l, im_r = self.im_draw_guide_line(im_l, im_r)
-        return im_l, im_r
+
+
+    def im_augmentation(self):
+        self.copy_images()
+        self.im_draw_guide_line()
 
 
     def mouse_listener(self, event, x, y, flags, param):
         self.mouse_u = x
         self.mouse_v = y
+        self.im_augmentation()
 
 
     def create_window(self):
@@ -89,16 +95,16 @@ class Interface:
         cv.setMouseCallback(self.window_name, self.mouse_listener)
 
 
-    def im_get(self):
+    def im_update(self):
         im_path_l = self.im_path_l[self.ind_im]
         im_path_r = self.im_path_r[self.ind_im]
-        im_l = cv.imread(im_path_l, -1)
-        im_r = cv.imread(im_path_r, -1)
+        self.im_l = cv.imread(im_path_l, -1)
+        self.im_r = cv.imread(im_path_r, -1)
+        self.copy_images()
         if (self.im_h != -1 and self.im_w != -1):
             # Check that images have the same size
-            assert(im_l.shape[0] == im_r.shape[0] == self.im_h)
-            assert(im_l.shape[1] == im_r.shape[1] == self.im_w)
-        return im_l, im_r
+            assert(self.im_l.shape[0] == self.im_r.shape[0] == self.im_h)
+            assert(self.im_l.shape[1] == self.im_r.shape[1] == self.im_w)
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
@@ -139,10 +145,12 @@ class Interface:
             self.ind_im += 1
             if self.ind_im > (self.n_im - 1):
                 self.ind_im = 0
+            self.im_update()
         elif key_pressed == ord(self.key_im_prev):
             self.ind_im -= 1
             if self.ind_im < 0:
                 self.ind_im = (self.n_im - 1)
+            self.im_update()
         elif key_pressed == ord(self.key_id_next):
             self.ind_id += 1
         elif key_pressed == ord(self.key_id_prev):
@@ -152,20 +160,24 @@ class Interface:
 
 
     def update_im_resolution(self):
-        im_l, _ = self.im_get()
-        self.im_h, self.im_w = im_l.shape[:2]
+        self.im_update()
+        self.im_h, self.im_w = self.im_l.shape[:2]
 
 
+    def copy_images(self):
+        self.im_l_a = np.copy(self.im_l)
+        self.im_r_a = np.copy(self.im_r)
+
+
+    def im_initialize(self):
+        self.update_im_resolution()
     def main_loop(self):
         """ Interface's main loop """
         key_pressed = None
-        self.update_im_resolution()
+        self.im_initialize()
         while key_pressed != ord(self.key_quit):
-            im_l, im_r = self.im_get()
-            # Augment images
-            im_l, im_r = self.im_augmentation(im_l, im_r)
             # Stack images together
-            stack = np.concatenate((im_l, im_r), axis=1)
+            stack = np.concatenate((self.im_l_a, self.im_r_a), axis=1)
             # Add status bar in the bottom
             stack = self.add_status_bar(stack)
             cv.imshow(self.window_name, stack)
