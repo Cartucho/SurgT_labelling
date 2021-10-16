@@ -158,7 +158,7 @@ class Interface:
         self.im_h, self.im_w = im_l.shape[:2]
 
 
-    def main_loop(self, window_name):
+    def main_loop(self):
         """ Interface's main loop """
         key_pressed = None
         self.update_im_resolution()
