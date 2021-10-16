@@ -3,8 +3,40 @@ import os
 from natsort import natsorted
 import cv2 as cv
 import numpy as np
+from pathlib import Path
+from code import utils
 
 
+
+
+class StereoKpts:
+    def __init__(self, im_name, dir_out_l, dir_out_r):
+        self.kpts_l = {}
+        self.kpts_r = {}
+        #self.im_name = im_name
+        #self.dir_out_l = dir_out_l
+        #self.dir_out_r = dir_out_r
+        name_file = "{}.yaml".format(im_name)
+        self.path_l = os.path.join(dir_out_l, name_file)
+        self.path_r = os.path.join(dir_out_r, name_file)
+        self.load_kpts_from_output_subdirs()
+
+
+    def get_kpts(self):
+        return self.kpts_l, self.kpts_r
+
+
+    def load_kpts_from_file(self, path):
+        if not os.path.isfile(path):
+            return {}
+        # Load data from .yaml file
+        return utils.load_yaml_data(path)
+
+
+    def load_kpts_from_output_subdirs(self):
+        self.kpts_l = self.load_kpts_from_file(self.path_l)
+        self.kpts_r = self.load_kpts_from_file(self.path_r)
+        assert(len(self.kpts_l) == len(self.kpts_r))
 
 
 class Interface:
@@ -36,6 +68,11 @@ class Interface:
         self.bar_m_l_pxl = c_bar["m_l_pxl"]
         self.bar_text_h_pxl = c_bar["text_h_pxl"]
         self.bar_text_c = c_bar["text_color"]
+        c_kpt = c_vis["kpt"]
+        self.kpt_c_thick_pxl = c_kpt["c_thick_pxl"]
+        self.kpt_c_size_pxl = c_kpt["c_size_pxl"]
+        self.kpt_color = c_kpt["color"]
+        self.kpt_s_thick_pxl = c_kpt["s_thick_pxl"]
         # Initialize
         self.ind_im = 0
         self.ind_id = 0
@@ -48,6 +85,7 @@ class Interface:
         self.im_r = None
         self.im_l_a = None # Augmented images
         self.im_r_a = None # Augmented images
+        self.kpts = None
 
 
     def create_output_paths(self):
@@ -77,11 +115,41 @@ class Interface:
         im_r = cv.line(self.im_r_a, (u, 0), (u, self.im_h), color, line_thick)
 
 
+    def im_draw_kpt_cross(self, im, u, v, color):
+        size = self.kpt_c_size_pxl
+        # Draw outer square
+        s_t = self.kpt_s_thick_pxl
+        cv.rectangle(im, (u - size, v - size), (u + size, v + size), color, s_t)
+        # Draw inner cross
+        c_t = self.kpt_c_thick_pxl
+        cv.line(im, (u - size, v), (u + size, v), color, c_t)
+        cv.line(im, (u, v - size), (u, v + size), color, c_t)
+
+
+    def im_draw_kpt_pair(self, ind_id, kpt_l, kpt_r):
+        kpt_l_u = kpt_l["u"]
+        kpt_l_v = kpt_l["v"]
+        kpt_r_u = kpt_r["u"]
+        kpt_r_v = kpt_r["v"]
+        # Draw cross
+        color = np.array(self.kpt_color, dtype=np.uint8).tolist()
+        self.im_draw_kpt_cross(self.im_l_a, kpt_l_u, kpt_l_v, color)
+        self.im_draw_kpt_cross(self.im_r_a, kpt_r_u, kpt_r_v, color)
+        # Draw ind_id
+
+
+    def im_draw_all_kpts(self):
+        if self.kpts is not None:
+            kpts_l, kpts_r = self.kpts.get_kpts()
+            for kpt_l_key, kpt_l_val in kpts_l.items():
+                kpt_r_val = kpts_r[kpt_l_key]
+                self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
 
 
     def im_augmentation(self):
         self.copy_images()
         self.im_draw_guide_line()
+        self.im_draw_all_kpts()
 
 
     def mouse_listener(self, event, x, y, flags, param):
@@ -101,6 +169,8 @@ class Interface:
         self.im_l = cv.imread(im_path_l, -1)
         self.im_r = cv.imread(im_path_r, -1)
         self.copy_images()
+        self.load_kpt_data()
+        self.im_draw_all_kpts()
         if (self.im_h != -1 and self.im_w != -1):
             # Check that images have the same size
             assert(self.im_l.shape[0] == self.im_r.shape[0] == self.im_h)
@@ -169,12 +239,23 @@ class Interface:
         self.im_r_a = np.copy(self.im_r)
 
 
-    def im_initialize(self):
-        self.update_im_resolution()
+    def get_current_im_names(self):
+        im_name_l = Path(self.im_path_l[self.ind_im]).stem
+        im_name_r = Path(self.im_path_r[self.ind_im]).stem
+        return im_name_l, im_name_r
+
+
+    def load_kpt_data(self):
+        self.kpts = None
+        im_name_l, im_name_r = self.get_current_im_names()
+        assert(im_name_l == im_name_r)
+        self.kpts = StereoKpts(im_name_l, self.dir_out_l, self.dir_out_r)
+
+
     def main_loop(self):
         """ Interface's main loop """
         key_pressed = None
-        self.im_initialize()
+        self.update_im_resolution()
         while key_pressed != ord(self.key_quit):
             # Stack images together
             stack = np.concatenate((self.im_l_a, self.im_r_a), axis=1)

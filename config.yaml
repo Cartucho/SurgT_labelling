@@ -25,3 +25,8 @@ vis:
         m_l_pxl: 10 # Margin on the left in [pixels]
         text_h_pxl: 25 # Text height in [pixels], must be smaller than `h_pxl`
         text_color: [255, 255, 255] # [B, G, R]
+    kpt:
+        c_thick_pxl: 1 # Cross thickness in [pixels]
+        c_size_pxl: 25 # Cross size in [pixels]
+        color: [0, 255, 0] # [B, G, R]
+        s_thick_pxl: 3 # Outer square thickness [pixels]
