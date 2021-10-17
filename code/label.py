@@ -100,6 +100,8 @@ class Draw:
         self.load_vis_config(config)
         self.mouse_u = 0
         self.mouse_v = 0
+        self.is_mouse_on_im_l = False
+        self.is_mouse_on_im_r = False
         self.im_l_a = None # Augmented image - left
         self.im_r_a = None # Augmented image - right
         self.initialize_im()
@@ -111,6 +113,7 @@ class Draw:
         # Images
         dir_l = os.path.join(self.dir_data, c_data["subdir_stereo_l"])
         dir_r = os.path.join(self.dir_data, c_data["subdir_stereo_r"])
+        self.is_rectified = c_data["is_rectified"]
         im_format = c_data["im_format"]
         self.Images = Images(dir_l, dir_r, im_format)
         # Keypoints
@@ -149,11 +152,24 @@ class Draw:
         line_thick = self.guide_t
         color = np.array(self.guide_c, dtype=np.uint8).tolist()
         v = self.mouse_v
-        cv.line(self.im_l_a, (0, v), (self.im_w, v), color, line_thick)
-        cv.line(self.im_r_a, (0, v), (self.im_w, v), color, line_thick)
+        pt_l = (0, v)
+        pt_r = (self.im_w, v)
+        if self.is_rectified:
+            cv.line(self.im_l_a, pt_l, pt_r, color, line_thick)
+            cv.line(self.im_r_a, pt_l, pt_r, color, line_thick)
         u = self.mouse_u
-        cv.line(self.im_l_a, (u, 0), (u, self.im_h), color, line_thick)
-        cv.line(self.im_r_a, (u, 0), (u, self.im_h), color, line_thick)
+        if self.is_mouse_on_im_l:
+            pt_t = (u, 0)
+            pt_b = (u, self.im_h)
+            cv.line(self.im_l_a, pt_t, pt_b, color, line_thick)
+            if not self.is_rectified:
+                cv.line(self.im_l_a, pt_l, pt_r, color, line_thick)
+        elif self.is_mouse_on_im_r:
+            pt_t = (u - self.im_w, 0)
+            pt_b = (u - self.im_w, self.im_h)
+            cv.line(self.im_r_a, pt_t, pt_b, color, line_thick)
+            if not self.is_rectified:
+                cv.line(self.im_r_a, pt_l, pt_r, color, line_thick)
 
 
     def im_draw_kpt_cross(self, im, u, v, color):
@@ -186,9 +202,16 @@ class Draw:
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
 
 
-    def mouse_moved(self, x, y):
-        self.mouse_u = x
-        self.mouse_v = y
+    def mouse_updated(self, u, v):
+        self.mouse_u = u
+        self.mouse_v = v
+        self.is_mouse_on_im_l = False
+        self.is_mouse_on_im_r = False
+        if v < self.im_h:
+            if u < self.im_w:
+                self.is_mouse_on_im_l = True
+            else:
+                self.is_mouse_on_im_r = True
         self.update_im_augmentation()
 
 
@@ -298,7 +321,7 @@ class Interface:
 
 
     def mouse_listener(self, event, x, y, flags, param):
-        self.Draw.mouse_moved(x, y)
+        self.Draw.mouse_updated(x, y)
 
 
     def create_window(self):

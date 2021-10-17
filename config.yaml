@@ -3,6 +3,7 @@ data:
     dir: "data"
     subdir_stereo_l: "left"
     subdir_stereo_r: "right"
+    is_rectified: True # Are images rectified
     im_format: ".png"
     subdir_output_l: "left_kpts"
     subdir_output_r: "right_kpts"
