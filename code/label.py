@@ -158,15 +158,13 @@ class Draw:
             cv.line(self.im_l_a, pt_l, pt_r, color, line_thick)
             cv.line(self.im_r_a, pt_l, pt_r, color, line_thick)
         u = self.mouse_u
+        pt_t = (u, 0)
+        pt_b = (u, self.im_h)
         if self.is_mouse_on_im_l:
-            pt_t = (u, 0)
-            pt_b = (u, self.im_h)
             cv.line(self.im_l_a, pt_t, pt_b, color, line_thick)
             if not self.is_rectified:
                 cv.line(self.im_l_a, pt_l, pt_r, color, line_thick)
         elif self.is_mouse_on_im_r:
-            pt_t = (u - self.im_w, 0)
-            pt_b = (u - self.im_w, self.im_h)
             cv.line(self.im_r_a, pt_t, pt_b, color, line_thick)
             if not self.is_rectified:
                 cv.line(self.im_r_a, pt_l, pt_r, color, line_thick)
@@ -211,6 +209,7 @@ class Draw:
             if u < self.im_w:
                 self.is_mouse_on_im_l = True
             else:
+                self.mouse_u -= self.im_w
                 self.is_mouse_on_im_r = True
         self.update_im_augmentation()
 
