@@ -102,8 +102,8 @@ class Draw:
         self.mouse_v = 0
         self.is_mouse_on_im_l = False
         self.is_mouse_on_im_r = False
-        self.im_l_a = None # Augmented image - left
-        self.im_r_a = None # Augmented image - right
+        self.im_l_all = None
+        self.im_r_all = None
         self.initialize_im()
 
 
@@ -143,9 +143,7 @@ class Draw:
         self.n_im = self.Images.get_n_im()
         self.Images.im_update(self.ind_im)
         self.im_h, self.im_w = self.Images.get_resolution()
-        self.copy_images()
-        self.load_kpt_data()
-        self.im_draw_all_kpts()
+        self.get_im_with_keypoints()
 
 
     def im_draw_guide_line(self):
@@ -155,19 +153,19 @@ class Draw:
         pt_l = (0, v)
         pt_r = (self.im_w, v)
         if self.is_rectified:
-            cv.line(self.im_l_a, pt_l, pt_r, color, line_thick)
-            cv.line(self.im_r_a, pt_l, pt_r, color, line_thick)
+            cv.line(self.im_l_all, pt_l, pt_r, color, line_thick)
+            cv.line(self.im_r_all, pt_l, pt_r, color, line_thick)
         u = self.mouse_u
         pt_t = (u, 0)
         pt_b = (u, self.im_h)
         if self.is_mouse_on_im_l:
-            cv.line(self.im_l_a, pt_t, pt_b, color, line_thick)
+            cv.line(self.im_l_all, pt_t, pt_b, color, line_thick)
             if not self.is_rectified:
-                cv.line(self.im_l_a, pt_l, pt_r, color, line_thick)
+                cv.line(self.im_l_all, pt_l, pt_r, color, line_thick)
         elif self.is_mouse_on_im_r:
-            cv.line(self.im_r_a, pt_t, pt_b, color, line_thick)
+            cv.line(self.im_r_all, pt_t, pt_b, color, line_thick)
             if not self.is_rectified:
-                cv.line(self.im_r_a, pt_l, pt_r, color, line_thick)
+                cv.line(self.im_r_all, pt_l, pt_r, color, line_thick)
 
 
     def im_draw_kpt_cross(self, im, u, v, color):
@@ -188,8 +186,8 @@ class Draw:
         kpt_r_v = kpt_r["v"]
         # Draw cross
         color = np.array(self.kpt_color, dtype=np.uint8).tolist()
-        self.im_draw_kpt_cross(self.im_l_a, kpt_l_u, kpt_l_v, color)
-        self.im_draw_kpt_cross(self.im_r_a, kpt_r_u, kpt_r_v, color)
+        self.im_draw_kpt_cross(self.im_l_all, kpt_l_u, kpt_l_v, color)
+        self.im_draw_kpt_cross(self.im_r_all, kpt_r_u, kpt_r_v, color)
         # Draw ind_id
 
 
@@ -215,10 +213,8 @@ class Draw:
 
 
     def update_im_augmentation(self):
-        self.copy_images()
+        self.get_im_with_keypoints()
         self.im_draw_guide_line()
-        self.load_kpt_data()
-        self.im_draw_all_kpts()
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
@@ -254,10 +250,12 @@ class Draw:
         return draw
 
 
-    def copy_images(self):
+    def get_im_with_keypoints(self):
         im_l, im_r = self.Images.get_im_pair()
-        self.im_l_a = np.copy(im_l)
-        self.im_r_a = np.copy(im_r)
+        self.im_l_all = np.copy(im_l)
+        self.im_r_all = np.copy(im_r)
+        self.load_kpt_data()
+        self.im_draw_all_kpts()
 
 
     def load_kpt_data(self):
@@ -293,7 +291,7 @@ class Draw:
 
     def get_draw(self):
         # Stack images together
-        draw = np.concatenate((self.im_l_a, self.im_r_a), axis=1)
+        draw = np.concatenate((self.im_l_all, self.im_r_all), axis=1)
         # Add status bar in the bottom
         draw = self.add_status_bar(draw)
         return draw
