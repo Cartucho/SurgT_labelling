@@ -227,8 +227,9 @@ class Draw:
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
+        desired_height = self.bar_text_h_pxl
         _, text_h = cv.getTextSize(txt, font, 1.0, thickness)[0]
-        scale = float(self.bar_text_h_pxl) / text_h
+        scale = float(desired_height) / text_h
         return scale
 
 
