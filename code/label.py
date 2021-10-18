@@ -133,7 +133,8 @@ class Draw:
         c_kpt = c_vis["kpt"]
         self.kpt_c_thick_pxl = c_kpt["c_thick_pxl"]
         self.kpt_c_size_pxl = c_kpt["c_size_pxl"]
-        self.kpt_color = c_kpt["color"]
+        self.kpt_color_s = c_kpt["color_s"]
+        self.kpt_color_not_s = c_kpt["color_not_s"]
         self.kpt_s_thick_pxl = c_kpt["s_thick_pxl"]
 
 
@@ -189,7 +190,9 @@ class Draw:
         kpt_r_u = kpt_r["u"]
         kpt_r_v = kpt_r["v"]
         # Draw cross
-        color = np.array(self.kpt_color, dtype=np.uint8).tolist()
+        color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
+        if ind_id != self.ind_id:
+            color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
         self.im_draw_kpt_cross(self.im_l_kpt, kpt_l_u, kpt_l_v, color)
         self.im_draw_kpt_cross(self.im_r_kpt, kpt_r_u, kpt_r_v, color)
         # Draw ind_id
@@ -288,12 +291,16 @@ class Draw:
 
     def id_next(self):
         self.ind_id += 1
+        self.im_draw_all_kpts()
+        self.copy_im_kpt_to_all()
 
 
     def id_prev(self):
         self.ind_id -=1
         if self.ind_id < 0:
             self.ind_id = 0
+        self.im_draw_all_kpts()
+        self.copy_im_kpt_to_all()
 
 
     def get_draw(self):
