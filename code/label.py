@@ -14,6 +14,8 @@ class Keypoints:
         self.dir_out_l = dir_out_l
         self.dir_out_r = dir_out_r
         self.create_output_paths()
+        self.path_l = None
+        self.path_r = None
 
 
     def create_output_paths(self):
@@ -23,10 +25,16 @@ class Keypoints:
             os.mkdir(self.dir_out_r)
 
 
+    def save_kpts_to_file(self):
+        utils.write_yaml_data(self.path_l, self.kpts_l)
+        utils.write_yaml_data(self.path_r, self.kpts_r)
+
+
     def remove_kpts(self, ind_id):
         self.kpts_l.pop(ind_id, None)
         self.kpts_r.pop(ind_id, None)
-        # TODO: Save kpts to .yaml
+        # Save kpts to .yaml
+        self.save_kpts_to_file()
 
 
     def get_kpts(self):
@@ -34,23 +42,23 @@ class Keypoints:
 
 
     def load_kpts_from_file(self, path):
-        if not os.path.isfile(path):
-            return {}
-        # Load data from .yaml file
-        return utils.load_yaml_data(path)
+        if os.path.isfile(path):
+            # Load data from .yaml file
+            data = utils.load_yaml_data(path)
+            if data is not None:
+                return data
+        return {}
 
 
     def update_ktp_pairs(self, im_name):
         self.kpts_l = {}
         self.kpts_r = {}
         name_file = "{}.yaml".format(im_name)
-        path_l = os.path.join(self.dir_out_l, name_file)
-        path_r = os.path.join(self.dir_out_r, name_file)
-        self.kpts_l = self.load_kpts_from_file(path_l)
-        self.kpts_r = self.load_kpts_from_file(path_r)
+        self.path_l = os.path.join(self.dir_out_l, name_file)
+        self.path_r = os.path.join(self.dir_out_r, name_file)
+        self.kpts_l = self.load_kpts_from_file(self.path_l)
+        self.kpts_r = self.load_kpts_from_file(self.path_r)
         assert(len(self.kpts_l) == len(self.kpts_r))
-
-
 
 
 class Images:
