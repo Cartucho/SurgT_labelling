@@ -16,6 +16,26 @@ class Keypoints:
         self.create_output_paths()
         self.path_l = None
         self.path_r = None
+        self.new_l = False
+        self.new_r = False
+
+
+    def new_kpt(self, is_l_kpt, ind_id, u, v):
+        n_kpt = {"u": u, "v": v}
+        if is_l_kpt:
+            self.new_l = True
+            self.kpts_l[ind_id] = n_kpt
+        else:
+            self.new_r = True
+            self.kpts_r[ind_id] = n_kpt
+        self.check_for_new_kpt_pair()
+
+
+    def check_for_new_kpt_pair(self):
+        if self.new_l and self.new_r:
+            self.save_kpt_pairs_to_files()
+            self.new_l = False
+            self.new_r = False
 
 
     def create_output_paths(self):
@@ -25,7 +45,17 @@ class Keypoints:
             os.mkdir(self.dir_out_r)
 
 
-    def save_kpts_to_file(self):
+    def remove_unpaired_kpts(self):
+        keys_l = self.kpts_l.keys()
+        keys_r = self.kpts_r.keys()
+        not_pair = list(set(keys_l).symmetric_difference(keys_r))
+        for key in not_pair:
+            self.kpts_l.pop(key, None)
+            self.kpts_r.pop(key, None)
+
+
+    def save_kpt_pairs_to_files(self):
+        self.remove_unpaired_kpts()
         utils.write_yaml_data(self.path_l, self.kpts_l)
         utils.write_yaml_data(self.path_r, self.kpts_r)
 
@@ -34,7 +64,7 @@ class Keypoints:
         self.kpts_l.pop(ind_id, None)
         self.kpts_r.pop(ind_id, None)
         # Save kpts to .yaml
-        self.save_kpts_to_file()
+        self.save_kpt_pairs_to_files()
 
 
     def get_kpts(self):
@@ -198,30 +228,31 @@ class Draw:
         cv.line(im, (u, v - size), (u, v + size), color, c_t)
 
 
-    def im_draw_kpt_pair(self, ind_id, kpt_l, kpt_r):
-        kpt_l_u = kpt_l["u"]
-        kpt_l_v = kpt_l["v"]
-        kpt_r_u = kpt_r["u"]
-        kpt_r_v = kpt_r["v"]
+    def im_draw_kpt_pair(self, ind_id, kpt, is_left):
+        kpt_u = kpt["u"]
+        kpt_v = kpt["v"]
         # Draw cross
         color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
         if ind_id == self.ind_id:
-            self.is_kpt_selected = True
+            self.n_kpt_selected += 1
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
-        self.im_draw_kpt_cross(self.im_l_kpt, kpt_l_u, kpt_l_v, color)
-        self.im_draw_kpt_cross(self.im_r_kpt, kpt_r_u, kpt_r_v, color)
+        if is_left:
+            self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color)
+        else:
+            self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color)
         # Draw ind_id
 
 
     def im_draw_all_kpts(self):
         kpts_l, kpts_r = self.Keypoints.get_kpts()
-        self.is_kpt_selected = False
+        self.n_kpt_selected = 0
         for kpt_l_key, kpt_l_val in kpts_l.items():
-            kpt_r_val = kpts_r[kpt_l_key]
-            self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
+            self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True)
+        for kpt_r_key, kpt_r_val in kpts_r.items():
+            self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False)
 
 
-    def mouse_move(self, u, v):
+    def update_mouse_position(self, u, v):
         self.mouse_u = u
         self.mouse_v = v
         # Check if mouse is on left or right image
@@ -233,14 +264,22 @@ class Draw:
             else:
                 self.mouse_u -= self.im_w
                 self.is_mouse_on_im_r = True
+
+
+    def mouse_move(self, u, v):
+        self.update_mouse_position(u, v)
         self.im_draw_guide_line()
 
 
     def mouse_lclick(self, u, v):
-        self.mouse_u = u
-        self.mouse_v = v
-        # TODO: Save new keypoint
-        # TODO: Check for keypoint-pair
+        self.update_mouse_position(u, v)
+        # Save new keypoint
+        if self.is_mouse_on_im_l or self.is_mouse_on_im_r:
+            if self.n_kpt_selected < 2:
+                self.Keypoints.new_kpt(self.is_mouse_on_im_l,
+                                       self.ind_id,
+                                       self.mouse_u,
+                                       self.mouse_v)
         # Draw new keypoint as well
         self.update_im_with_keypoints(False)
 
@@ -272,7 +311,7 @@ class Draw:
         cv.putText(bar, txt, (left, bot), font, font_scale, color, thickness)
         left += self.get_text_width(txt, font, font_scale, thickness)
         txt = " Id: [{}]".format(self.ind_id)
-        if self.is_kpt_selected:
+        if self.n_kpt_selected > 0:
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
         cv.putText(bar, txt, (left, bot), font, font_scale, color, thickness)
         return bar
@@ -333,7 +372,7 @@ class Draw:
 
 
     def remove_selected_kpts(self):
-        if self.is_kpt_selected:
+        if self.n_kpt_selected > 0:
             self.Keypoints.remove_kpts(self.ind_id)
             self.update_im_with_keypoints(False)
 
