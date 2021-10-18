@@ -29,6 +29,6 @@ vis:
     kpt:
         c_thick_pxl: 1 # Cross thickness in [pixels]
         c_size_pxl: 25 # Cross size in [pixels]
-        color_s: [0, 255, 0] # [B, G, R] Selected
-        color_not_s: [0, 0, 255] # [B, G, R] Not selected
+        color_s: [0, 0, 255] # [B, G, R] Selected
+        color_not_s: [0, 255, 0] # [B, G, R] Not selected
         s_thick_pxl: 3 # Outer square thickness [pixels]

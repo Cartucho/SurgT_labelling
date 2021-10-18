@@ -191,7 +191,8 @@ class Draw:
         kpt_r_v = kpt_r["v"]
         # Draw cross
         color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
-        if ind_id != self.ind_id:
+        if ind_id == self.ind_id:
+            self.is_kpt_selected = True
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
         self.im_draw_kpt_cross(self.im_l_kpt, kpt_l_u, kpt_l_v, color)
         self.im_draw_kpt_cross(self.im_r_kpt, kpt_r_u, kpt_r_v, color)
@@ -200,6 +201,7 @@ class Draw:
 
     def im_draw_all_kpts(self):
         kpts_l, kpts_r = self.Keypoints.get_kpts()
+        self.is_kpt_selected = False
         for kpt_l_key, kpt_l_val in kpts_l.items():
             kpt_r_val = kpts_r[kpt_l_key]
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
@@ -233,21 +235,29 @@ class Draw:
         return scale
 
 
+    def get_text_width(self, txt, font, scale, thickness):
+        text_w, _text_h = cv.getTextSize(txt, font, scale, thickness)[0]
+        return text_w
+
+
     def add_status_text(self, bar):
         # Message
-        txt = ""
-        txt += "Im: [{}/{}]".format(self.ind_im, self.n_im - 1)
-        txt += " Id: [{}]".format(self.ind_id)
+        txt = "Im: [{}/{}]".format(self.ind_im, self.n_im - 1)
         # Text specifications
         font = cv.FONT_HERSHEY_DUPLEX
         thickness = 2
         font_scale = self.get_text_scale_to_fit_height(txt, font, thickness)
         color = np.array(self.bar_text_c, dtype=np.uint8).tolist()
         # Centre text vertically
+        left = self.bar_m_l_pxl
         bot = int((self.bar_h_pxl + self.bar_text_h_pxl) / 2.0)
-        left_bot = (self.bar_m_l_pxl, bot) # (left, bottom) corner of the text
         # Write text
-        cv.putText(bar, txt, left_bot, font, font_scale, color, thickness)
+        cv.putText(bar, txt, (left, bot), font, font_scale, color, thickness)
+        left += self.get_text_width(txt, font, font_scale, thickness)
+        txt = " Id: [{}]".format(self.ind_id)
+        if self.is_kpt_selected:
+            color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
+        cv.putText(bar, txt, (left, bot), font, font_scale, color, thickness)
         return bar
 
 
