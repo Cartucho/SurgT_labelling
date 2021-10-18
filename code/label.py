@@ -102,8 +102,6 @@ class Draw:
         self.mouse_v = 0
         self.is_mouse_on_im_l = False
         self.is_mouse_on_im_r = False
-        self.im_l_all = None
-        self.im_r_all = None
         self.initialize_im()
 
 
@@ -143,10 +141,16 @@ class Draw:
         self.n_im = self.Images.get_n_im()
         self.Images.im_update(self.ind_im)
         self.im_h, self.im_w = self.Images.get_resolution()
-        self.get_im_with_keypoints()
+        self.update_im_with_keypoints()
+
+
+    def copy_im_kpt_to_all(self):
+        self.im_l_all = np.copy(self.im_l_kpt)
+        self.im_r_all = np.copy(self.im_r_kpt)
 
 
     def im_draw_guide_line(self):
+        self.copy_im_kpt_to_all()
         line_thick = self.guide_t
         color = np.array(self.guide_c, dtype=np.uint8).tolist()
         v = self.mouse_v
@@ -186,8 +190,8 @@ class Draw:
         kpt_r_v = kpt_r["v"]
         # Draw cross
         color = np.array(self.kpt_color, dtype=np.uint8).tolist()
-        self.im_draw_kpt_cross(self.im_l_all, kpt_l_u, kpt_l_v, color)
-        self.im_draw_kpt_cross(self.im_r_all, kpt_r_u, kpt_r_v, color)
+        self.im_draw_kpt_cross(self.im_l_kpt, kpt_l_u, kpt_l_v, color)
+        self.im_draw_kpt_cross(self.im_r_kpt, kpt_r_u, kpt_r_v, color)
         # Draw ind_id
 
 
@@ -198,9 +202,10 @@ class Draw:
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, kpt_r_val)
 
 
-    def mouse_updated(self, u, v):
+    def mouse_move(self, u, v):
         self.mouse_u = u
         self.mouse_v = v
+        # Check if mouse is on left or right image
         self.is_mouse_on_im_l = False
         self.is_mouse_on_im_r = False
         if v < self.im_h:
@@ -209,12 +214,13 @@ class Draw:
             else:
                 self.mouse_u -= self.im_w
                 self.is_mouse_on_im_r = True
-        self.update_im_augmentation()
-
-
-    def update_im_augmentation(self):
-        self.get_im_with_keypoints()
         self.im_draw_guide_line()
+
+
+    def mouse_lclick(self, u, v):
+        self.mouse_u = u
+        self.mouse_v = v
+        self.update_im_with_keypoints()
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
@@ -250,12 +256,13 @@ class Draw:
         return draw
 
 
-    def get_im_with_keypoints(self):
+    def update_im_with_keypoints(self):
         im_l, im_r = self.Images.get_im_pair()
-        self.im_l_all = np.copy(im_l)
-        self.im_r_all = np.copy(im_r)
+        self.im_l_kpt = np.copy(im_l)
+        self.im_r_kpt = np.copy(im_r)
         self.load_kpt_data()
         self.im_draw_all_kpts()
+        self.copy_im_kpt_to_all()
 
 
     def load_kpt_data(self):
@@ -268,7 +275,7 @@ class Draw:
         if self.ind_im > (self.n_im - 1):
             self.ind_im = 0
         self.Images.im_update(self.ind_im)
-        self.update_im_augmentation()
+        self.update_im_with_keypoints()
 
 
     def im_prev(self):
@@ -276,7 +283,7 @@ class Draw:
         if self.ind_im < 0:
             self.ind_im = (self.n_im - 1)
         self.Images.im_update(self.ind_im)
-        self.update_im_augmentation()
+        self.update_im_with_keypoints()
 
 
     def id_next(self):
@@ -318,7 +325,10 @@ class Interface:
 
 
     def mouse_listener(self, event, x, y, flags, param):
-        self.Draw.mouse_updated(x, y)
+        if (event == cv.EVENT_MOUSEMOVE):
+            self.Draw.mouse_move(x, y)
+        elif (event == cv.EVENT_LBUTTONUP):
+            self.Draw.mouse_lclick(x, y)
 
 
     def create_window(self):
