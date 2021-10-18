@@ -228,6 +228,17 @@ class Draw:
         cv.line(im, (u, v - size), (u, v + size), color, c_t)
 
 
+    def im_draw_kpt_id(self, im, ind_id, u, v, color):
+        txt = "{}".format(ind_id)
+        size = self.kpt_c_size_pxl
+        left = u - size
+        bot = v - size - 10
+        font = cv.FONT_HERSHEY_SIMPLEX
+        thickness = 2
+        font_scale = self.get_text_scale_to_fit_height(txt, font, thickness)
+        cv.putText(im, txt, (left, bot), font, font_scale, color, thickness)
+
+
     def im_draw_kpt_pair(self, ind_id, kpt, is_left):
         kpt_u = kpt["u"]
         kpt_v = kpt["v"]
@@ -238,9 +249,10 @@ class Draw:
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
         if is_left:
             self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color)
+            self.im_draw_kpt_id(self.im_l_kpt, ind_id, kpt_u, kpt_v, color)
         else:
             self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color)
-        # Draw ind_id
+            self.im_draw_kpt_id(self.im_r_kpt, ind_id, kpt_u, kpt_v, color)
 
 
     def im_draw_all_kpts(self):
