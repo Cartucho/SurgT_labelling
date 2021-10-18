@@ -13,7 +13,7 @@ key: # Interface keys
     im_next: "d" # Go to next image pair
     id_prev: "s" # Go to previous id
     id_next: "w" # Go to next id
-    readjust: "r" # Use the arrow keys to readjust
+    remove: "r"  # Remove selected keypoints
     magic: "m" # Magic labeling -> interpolation
 # Code configuration
 vis:

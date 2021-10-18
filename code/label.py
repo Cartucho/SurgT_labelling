@@ -23,6 +23,12 @@ class Keypoints:
             os.mkdir(self.dir_out_r)
 
 
+    def remove_kpts(self, ind_id):
+        self.kpts_l.pop(ind_id, None)
+        self.kpts_r.pop(ind_id, None)
+        # TODO: Save kpts to .yaml
+
+
     def get_kpts(self):
         return self.kpts_l, self.kpts_r
 
@@ -142,7 +148,7 @@ class Draw:
         self.n_im = self.Images.get_n_im()
         self.Images.im_update(self.ind_im)
         self.im_h, self.im_w = self.Images.get_resolution()
-        self.update_im_with_keypoints()
+        self.update_im_with_keypoints(True)
 
 
     def copy_im_kpt_to_all(self):
@@ -225,7 +231,10 @@ class Draw:
     def mouse_lclick(self, u, v):
         self.mouse_u = u
         self.mouse_v = v
-        self.update_im_with_keypoints()
+        # TODO: Save new keypoint
+        # TODO: Check for keypoint-pair
+        # Draw new keypoint as well
+        self.update_im_with_keypoints(False)
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
@@ -270,11 +279,12 @@ class Draw:
         return draw
 
 
-    def update_im_with_keypoints(self):
+    def update_im_with_keypoints(self, is_new_im):
         im_l, im_r = self.Images.get_im_pair()
         self.im_l_kpt = np.copy(im_l)
         self.im_r_kpt = np.copy(im_r)
-        self.load_kpt_data()
+        if is_new_im:
+            self.load_kpt_data()
         self.im_draw_all_kpts()
         self.copy_im_kpt_to_all()
 
@@ -289,7 +299,7 @@ class Draw:
         if self.ind_im > (self.n_im - 1):
             self.ind_im = 0
         self.Images.im_update(self.ind_im)
-        self.update_im_with_keypoints()
+        self.update_im_with_keypoints(True)
 
 
     def im_prev(self):
@@ -297,7 +307,7 @@ class Draw:
         if self.ind_im < 0:
             self.ind_im = (self.n_im - 1)
         self.Images.im_update(self.ind_im)
-        self.update_im_with_keypoints()
+        self.update_im_with_keypoints(True)
 
 
     def id_next(self):
@@ -312,6 +322,12 @@ class Draw:
             self.ind_id = 0
         self.im_draw_all_kpts()
         self.copy_im_kpt_to_all()
+
+
+    def remove_selected_kpts(self):
+        if self.is_kpt_selected:
+            self.Keypoints.remove_kpts(self.ind_id)
+            self.update_im_with_keypoints(False)
 
 
     def get_draw(self):
@@ -338,7 +354,7 @@ class Interface:
         self.key_im_next = c_keys["im_next"]
         self.key_id_prev = c_keys["id_prev"]
         self.key_id_next = c_keys["id_next"]
-        self.key_readjust = c_keys["readjust"]
+        self.key_remove = c_keys["remove"]
         self.key_magic = c_keys["magic"]
 
 
@@ -363,6 +379,8 @@ class Interface:
             self.Draw.id_next()
         elif key_pressed == ord(self.key_id_prev):
             self.Draw.id_prev()
+        elif key_pressed == ord(self.key_remove):
+            self.Draw.remove_selected_kpts()
 
 
     def main_loop(self):
