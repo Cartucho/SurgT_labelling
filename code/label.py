@@ -16,26 +16,35 @@ class Keypoints:
         self.create_output_paths()
         self.path_l = None
         self.path_r = None
-        self.new_l = False
-        self.new_r = False
+        self.new_l = None
+        self.new_r = None
 
 
     def new_kpt(self, is_l_kpt, ind_id, u, v):
-        n_kpt = {"u": u, "v": v}
+        kpt_n = {"u": u, "v": v}
         if is_l_kpt:
-            self.new_l = True
-            self.kpts_l[ind_id] = n_kpt
+            self.new_l = kpt_n
+            self.kpts_l[ind_id] = kpt_n
         else:
-            self.new_r = True
-            self.kpts_r[ind_id] = n_kpt
+            self.new_r = kpt_n
+            self.kpts_r[ind_id] = kpt_n
         self.check_for_new_kpt_pair()
 
 
+    def get_new_kpt_l(self):
+        return self.new_l
+
+
+    def get_new_kpt_r(self):
+        return self.new_r
+
+
     def check_for_new_kpt_pair(self):
-        if self.new_l and self.new_r:
+        if self.new_l is not None and \
+           self.new_r is not None:
             self.save_kpt_pairs_to_files()
-            self.new_l = False
-            self.new_r = False
+            self.new_l = None
+            self.new_r = None
 
 
     def create_output_paths(self):
@@ -273,9 +282,17 @@ class Draw:
         if v < self.im_h:
             if u < self.im_w:
                 self.is_mouse_on_im_l = True
+                if self.is_rectified:
+                    kpt_n_r = self.Keypoints.get_new_kpt_r()
+                    if kpt_n_r is not None:
+                        self.mouse_v = kpt_n_r["v"]
             else:
                 self.mouse_u -= self.im_w
                 self.is_mouse_on_im_r = True
+                if self.is_rectified:
+                    kpt_n_l = self.Keypoints.get_new_kpt_l()
+                    if kpt_n_l is not None:
+                        self.mouse_v = kpt_n_l["v"]
 
 
     def mouse_move(self, u, v):
