@@ -189,6 +189,7 @@ class Draw:
         self.kpt_color_s = c_kpt["color_s"]
         self.kpt_color_not_s = c_kpt["color_not_s"]
         self.kpt_s_thick_pxl = c_kpt["s_thick_pxl"]
+        self.kpt_id_v_marg_pxl = c_kpt["id_v_marg_pxl"]
 
 
     def initialize_im(self):
@@ -241,7 +242,7 @@ class Draw:
         txt = "{}".format(ind_id)
         size = self.kpt_c_size_pxl
         left = u - size
-        bot = v - size - 10
+        bot = v - size - self.kpt_id_v_marg_pxl
         font = cv.FONT_HERSHEY_SIMPLEX
         thickness = 2
         font_scale = self.get_text_scale_to_fit_height(txt, font, thickness)

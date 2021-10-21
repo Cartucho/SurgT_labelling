@@ -32,3 +32,4 @@ vis:
         color_s: [0, 0, 255] # [B, G, R] Selected
         color_not_s: [0, 255, 0] # [B, G, R] Not selected
         s_thick_pxl: 3 # Outer square thickness [pixels]
+        id_v_marg_pxl: 10 # Vertical margin [pixels]
