@@ -14,7 +14,7 @@ key: # Interface keys
     id_prev: "s" # Go to previous id
     id_next: "w" # Go to next id
     remove: "r"  # Remove selected keypoints
-    magic: "m" # Magic labeling -> interpolation
+    interp: "i"  # Interpolation
 # Code configuration
 vis:
     window_name: "Stereo-matches labeler"

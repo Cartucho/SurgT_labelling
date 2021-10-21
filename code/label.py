@@ -432,7 +432,7 @@ class Interface:
         self.key_id_prev = c_keys["id_prev"]
         self.key_id_next = c_keys["id_next"]
         self.key_remove = c_keys["remove"]
-        self.key_magic = c_keys["magic"]
+        self.key_interp = c_keys["interp"]
 
 
     def mouse_listener(self, event, x, y, flags, param):
