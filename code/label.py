@@ -5,6 +5,7 @@ import cv2 as cv
 import numpy as np
 from pathlib import Path
 from code import utils
+from scipy.interpolate import interp1d
 
 
 class Keypoints:
@@ -20,8 +21,14 @@ class Keypoints:
         self.new_r = None
 
 
+    def append_kpts(self, ind_id, kpt_l, kpt_r):
+        self.kpts_l[ind_id] = kpt_l
+        self.kpts_r[ind_id] = kpt_r
+        self.save_kpt_pairs_to_files()
+
+
     def new_kpt(self, is_l_kpt, ind_id, u, v):
-        kpt_n = {"u": u, "v": v}
+        kpt_n = {"u": u, "v": v, "is_interp": False}
         if is_l_kpt:
             self.new_l = kpt_n
             self.kpts_l[ind_id] = kpt_n
@@ -29,6 +36,51 @@ class Keypoints:
             self.new_r = kpt_n
             self.kpts_r[ind_id] = kpt_n
         self.check_for_new_kpt_pair()
+
+
+    def get_interp_values(self, im_used, position, n_im):
+        inds_im = np.linspace(0, n_im - 1, num=n_im, endpoint=True)
+        if len(im_used) > 3:
+            f = interp1d(im_used, position, kind='cubic')
+        else:
+            f = interp1d(im_used, position, kind='linear')
+        interp_values = f(inds_im)
+        return np.rint(interp_values)
+
+
+    def interpolate(self, n_im, ind_id_data, is_rectified):
+        im_used = []
+        kpt_l_u = []
+        kpt_l_v = []
+        kpt_r_u = []
+        kpt_r_v = []
+        for i, k_data in enumerate(ind_id_data.values()):
+            if k_data is not None:
+                im_used.append(i)
+                kpt_l_u.append(k_data["k_l"]["u"])
+                kpt_l_v.append(k_data["k_l"]["v"])
+                kpt_r_u.append(k_data["k_r"]["u"])
+                kpt_r_v.append(k_data["k_r"]["v"])
+        interp_k_l_u = self.get_interp_values(im_used, kpt_l_u, n_im)
+        interp_k_l_v = self.get_interp_values(im_used, kpt_l_v, n_im)
+        interp_k_r_u = self.get_interp_values(im_used, kpt_r_u, n_im)
+        if is_rectified:
+            interp_k_r_v = interp_k_l_v
+        else:
+            interp_k_r_v = self.get_interp_values(im_used, kpt_r_v, n_im)
+        ind_id_data_interp = {}
+        for i, (k_key, k_val) in enumerate(ind_id_data.items()):
+            if k_val is not None:
+                ind_id_data_interp[k_key] = None
+            else:
+                k_l = {"u": int(interp_k_l_u[i]),
+                       "v": int(interp_k_l_v[i]),
+                       "is_interp": True}
+                k_r = {"u": int(interp_k_r_u[i]),
+                       "v": int(interp_k_r_v[i]),
+                       "is_interp": True}
+                ind_id_data_interp[k_key] = {"k_l": k_l, "k_r": k_r}
+        return ind_id_data_interp
 
 
     def get_new_kpt_l(self):
@@ -78,6 +130,10 @@ class Keypoints:
 
     def get_kpts(self):
         return self.kpts_l, self.kpts_r
+
+
+    def get_kpts_given_ind_id(self, ind_id):
+        return self.kpts_l.get(ind_id), self.kpts_r.get(ind_id)
 
 
     def load_kpts_from_file(self, path):
@@ -407,6 +463,41 @@ class Draw:
             self.update_im_with_keypoints(False)
 
 
+    def interp_kpt_positions(self):
+        """ 1. Go through all picture-pairs and get all kpts
+                with `ind_id` = self.ind_id.
+
+                Save only the ones that were manually labelled,
+                since those are the accurate positions that are used
+                for interpolation.
+        """
+        ind_id_data = {}
+        for i in range(self.n_im):
+            im_name = self.Images.get_im_pair_name(i)
+            self.Keypoints.update_ktp_pairs(im_name)
+            k_l, k_r = self.Keypoints.get_kpts_given_ind_id(self.ind_id)
+            ind_id_data[im_name] = None
+            if k_l is not None and k_r is not None:
+                if not k_l["is_interp"] and not k_r["is_interp"]:
+                    ind_id_data[im_name] = {"k_l": k_l, "k_r": k_r}
+        #print(ind_id_data)
+        """ 2. Interpolate in between frames """
+        ind_id_data_interp = self.Keypoints.interpolate(self.n_im,
+                                                        ind_id_data,
+                                                        self.is_rectified)
+        #print(ind_id_data_interp)
+        """ 3. Save interpolated data """
+        for i in range(self.n_im):
+            im_name = self.Images.get_im_pair_name(i)
+            self.Keypoints.update_ktp_pairs(im_name)
+            kpts = ind_id_data_interp[im_name]
+            if kpts is not None:
+                self.Keypoints.append_kpts(self.ind_id, kpts["k_l"], kpts["k_r"])
+        """ 4. Update the GUI image to show
+                the newly interpolated keypoints """
+        self.update_im_with_keypoints(True)
+
+
     def get_draw(self):
         # Stack images together
         draw = np.concatenate((self.im_l_all, self.im_r_all), axis=1)
@@ -458,6 +549,8 @@ class Interface:
             self.Draw.id_prev()
         elif key_pressed == ord(self.key_remove):
             self.Draw.remove_selected_kpts()
+        elif key_pressed == ord(self.key_interp):
+            self.Draw.interp_kpt_positions()
 
 
     def main_loop(self):
