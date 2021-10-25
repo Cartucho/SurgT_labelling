@@ -38,48 +38,53 @@ class Keypoints:
         self.check_for_new_kpt_pair()
 
 
-    def get_interp_values(self, im_used, position, n_im):
-        inds_im = np.linspace(0, n_im - 1, num=n_im, endpoint=True)
-        if len(im_used) > 3:
-            f = interp1d(im_used, position, kind='cubic')
+    def get_interp_values(self, im_an, an_loc, i_min, i_max, i_n):
+        inds_im = np.linspace(i_min, i_max, num=i_n, endpoint=True)
+        if len(im_an) > 3:
+            f = interp1d(im_an, an_loc, kind='cubic')
         else:
-            f = interp1d(im_used, position, kind='linear')
+            f = interp1d(im_an, an_loc, kind='linear')
         interp_values = f(inds_im)
         return np.rint(interp_values)
 
 
     def interpolate(self, n_im, ind_id_data, is_rectified):
-        im_used = []
+        im_an = [] # Anchors used for interpolation
         kpt_l_u = []
         kpt_l_v = []
         kpt_r_u = []
         kpt_r_v = []
         for i, k_data in enumerate(ind_id_data.values()):
             if k_data is not None:
-                im_used.append(i)
+                im_an.append(i)
                 kpt_l_u.append(k_data["k_l"]["u"])
                 kpt_l_v.append(k_data["k_l"]["v"])
                 kpt_r_u.append(k_data["k_r"]["u"])
                 kpt_r_v.append(k_data["k_r"]["v"])
-        interp_k_l_u = self.get_interp_values(im_used, kpt_l_u, n_im)
-        interp_k_l_v = self.get_interp_values(im_used, kpt_l_v, n_im)
-        interp_k_r_u = self.get_interp_values(im_used, kpt_r_u, n_im)
+        i_min = im_an[0]
+        i_max = im_an[-1]
+        i_n = i_max - i_min + 1 # Number of images to interpolate
+        interp_k_l_u = self.get_interp_values(im_an, kpt_l_u, i_min, i_max, i_n)
+        interp_k_l_v = self.get_interp_values(im_an, kpt_l_v, i_min, i_max, i_n)
+        interp_k_r_u = self.get_interp_values(im_an, kpt_r_u, i_min, i_max, i_n)
         if is_rectified:
             interp_k_r_v = interp_k_l_v
         else:
-            interp_k_r_v = self.get_interp_values(im_used, kpt_r_v, n_im)
+            interp_k_r_v = self.get_interp_values(im_an, kpt_r_v, i_min, i_max, i_n)
         ind_id_data_interp = {}
         for i, (k_key, k_val) in enumerate(ind_id_data.items()):
-            if k_val is not None:
-                ind_id_data_interp[k_key] = None
-            else:
-                k_l = {"u": int(interp_k_l_u[i]),
-                       "v": int(interp_k_l_v[i]),
-                       "is_interp": True}
-                k_r = {"u": int(interp_k_r_u[i]),
-                       "v": int(interp_k_r_v[i]),
-                       "is_interp": True}
-                ind_id_data_interp[k_key] = {"k_l": k_l, "k_r": k_r}
+            ind_id_data_interp[k_key] = None
+            if k_val is None: # If not an anchor
+                if i > i_min and i < i_max: # If inside the interpolated range
+                    # Replace None by the interpolated value
+                    ind = i - i_min
+                    k_l = {"u": int(interp_k_l_u[ind]),
+                           "v": int(interp_k_l_v[ind]),
+                           "is_interp": True}
+                    k_r = {"u": int(interp_k_r_u[ind]),
+                           "v": int(interp_k_r_v[ind]),
+                           "is_interp": True}
+                    ind_id_data_interp[k_key] = {"k_l": k_l, "k_r": k_r}
         return ind_id_data_interp
 
 
