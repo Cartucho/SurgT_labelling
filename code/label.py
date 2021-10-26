@@ -299,8 +299,7 @@ class Draw:
         cv.line(im, (u, v - size), (u, v + size), color, c_t)
 
 
-    def im_draw_kpt_id(self, im, ind_id, u, v, color):
-        txt = "{}".format(ind_id)
+    def im_draw_kpt_id(self, im, txt, u, v, color):
         size = self.kpt_c_size_pxl
         left = u - size
         bot = v - size - self.kpt_id_v_marg_pxl
@@ -313,6 +312,10 @@ class Draw:
     def im_draw_kpt_pair(self, ind_id, kpt, is_left):
         kpt_u = kpt["u"]
         kpt_v = kpt["v"]
+        is_interp = kpt["is_interp"]
+        txt = "{}".format(ind_id)
+        if is_interp:
+            txt += "'"
         # Draw cross
         color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
         if ind_id == self.ind_id:
@@ -320,10 +323,10 @@ class Draw:
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
         if is_left:
             self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color)
-            self.im_draw_kpt_id(self.im_l_kpt, ind_id, kpt_u, kpt_v, color)
+            self.im_draw_kpt_id(self.im_l_kpt, txt, kpt_u, kpt_v, color)
         else:
             self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color)
-            self.im_draw_kpt_id(self.im_r_kpt, ind_id, kpt_u, kpt_v, color)
+            self.im_draw_kpt_id(self.im_r_kpt, txt, kpt_u, kpt_v, color)
 
 
     def im_draw_all_kpts(self):
