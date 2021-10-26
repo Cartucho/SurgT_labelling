@@ -366,15 +366,15 @@ class Draw:
 
 
     def mouse_lclick(self):
-        # Save new keypoint
         if self.is_mouse_on_im_l or self.is_mouse_on_im_r:
-            if self.n_kpt_selected < 2:
+            if self.n_kpt_selected < 2: # If not already labeled
+                # Save new keypoint
                 self.Keypoints.new_kpt(self.is_mouse_on_im_l,
                                        self.ind_id,
                                        self.mouse_u,
                                        self.mouse_v)
-        # Draw new keypoint as well
-        self.update_im_with_keypoints(False)
+                # Draw new keypoint as well
+                self.update_im_with_keypoints(False)
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
