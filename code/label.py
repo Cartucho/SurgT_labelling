@@ -419,11 +419,11 @@ class Draw:
         return draw
 
 
-    def update_im_with_keypoints(self, is_new_im):
+    def update_im_with_keypoints(self, reload_kpt):
         im_l, im_r = self.Images.get_im_pair()
         self.im_l_kpt = np.copy(im_l)
         self.im_r_kpt = np.copy(im_r)
-        if is_new_im:
+        if reload_kpt:
             self.load_kpt_data()
         self.im_draw_all_kpts()
         self.copy_im_kpt_to_all()
