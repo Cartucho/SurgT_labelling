@@ -38,56 +38,6 @@ class Keypoints:
         self.check_for_new_kpt_pair()
 
 
-    def get_interp_values(self, im_an, an_loc, i_min, i_max, i_n):
-        inds_im = np.linspace(i_min, i_max, num=i_n, endpoint=True)
-        if len(im_an) > 3:
-            f = interp1d(im_an, an_loc, kind='cubic')
-        else:
-            f = interp1d(im_an, an_loc, kind='linear')
-        interp_values = f(inds_im)
-        return np.rint(interp_values)
-
-
-    def interpolate(self, n_im, ind_id_data, is_rectified):
-        im_an = [] # Anchors used for interpolation
-        kpt_l_u = []
-        kpt_l_v = []
-        kpt_r_u = []
-        kpt_r_v = []
-        for i, k_data in enumerate(ind_id_data.values()):
-            if k_data is not None:
-                im_an.append(i)
-                kpt_l_u.append(k_data["k_l"]["u"])
-                kpt_l_v.append(k_data["k_l"]["v"])
-                kpt_r_u.append(k_data["k_r"]["u"])
-                kpt_r_v.append(k_data["k_r"]["v"])
-        i_min = im_an[0]
-        i_max = im_an[-1]
-        i_n = i_max - i_min + 1 # Number of images to interpolate
-        interp_k_l_u = self.get_interp_values(im_an, kpt_l_u, i_min, i_max, i_n)
-        interp_k_l_v = self.get_interp_values(im_an, kpt_l_v, i_min, i_max, i_n)
-        interp_k_r_u = self.get_interp_values(im_an, kpt_r_u, i_min, i_max, i_n)
-        if is_rectified:
-            interp_k_r_v = interp_k_l_v
-        else:
-            interp_k_r_v = self.get_interp_values(im_an, kpt_r_v, i_min, i_max, i_n)
-        ind_id_data_interp = {}
-        for i, (k_key, k_val) in enumerate(ind_id_data.items()):
-            ind_id_data_interp[k_key] = None
-            if k_val is None: # If not an anchor
-                if i > i_min and i < i_max: # If inside the interpolated range
-                    # Replace None by the interpolated value
-                    ind = i - i_min
-                    k_l = {"u": int(interp_k_l_u[ind]),
-                           "v": int(interp_k_l_v[ind]),
-                           "is_interp": True}
-                    k_r = {"u": int(interp_k_r_u[ind]),
-                           "v": int(interp_k_r_v[ind]),
-                           "is_interp": True}
-                    ind_id_data_interp[k_key] = {"k_l": k_l, "k_r": k_r}
-        return ind_id_data_interp
-
-
     def get_new_kpt_l(self):
         return self.new_l
 
@@ -206,6 +156,102 @@ class Images:
             self.im_h, self.im_w = self.im_l.shape[:2]
 
 
+class Interpolation:
+    def __init__(self, Images, Keypoints):
+        self.Images = Images
+        self.Keypoints = Keypoints
+
+
+    def get_interp_values(self, im_an, an_loc, i_min, i_max, i_n):
+        inds_im = np.linspace(i_min, i_max, num=i_n, endpoint=True)
+        if len(im_an) > 3:
+            f = interp1d(im_an, an_loc, kind='cubic')
+        else:
+            f = interp1d(im_an, an_loc, kind='linear')
+        interp_values = f(inds_im)
+        return np.rint(interp_values)
+
+
+    def get_kpt_data_given_ind_id(self, ind_id):
+        """ 1. Go through all picture-pairs and get all kpts
+                with `ind_id` = self.ind_id.
+
+                Save only the ones that were manually labelled,
+                since those are the accurate positions that are used
+                for interpolation.
+        """
+        data_ind_id = {}
+        count = 0
+        for i in range(self.Images.n_im):
+            im_name = self.Images.get_im_pair_name(i)
+            self.Keypoints.update_ktp_pairs(im_name)
+            k_l, k_r = self.Keypoints.get_kpts_given_ind_id(ind_id)
+            data_ind_id[im_name] = None
+            if k_l is not None and k_r is not None:
+                if not k_l["is_interp"] and not k_r["is_interp"]:
+                    data_ind_id[im_name] = {"k_l": k_l, "k_r": k_r}
+                    count += 1
+        if count < 2: # Need at least 2 points to interpolate
+            return None
+        return data_ind_id
+
+
+    def interp_kpts(self, data_ind_id, is_rectified):
+        """ Interpolate in between frames """
+        im_an = [] # Anchors used for interpolation
+        kpt_l_u = []
+        kpt_l_v = []
+        kpt_r_u = []
+        kpt_r_v = []
+        for i, k_data in enumerate(data_ind_id.values()):
+            if k_data is not None:
+                im_an.append(i)
+                kpt_l_u.append(k_data["k_l"]["u"])
+                kpt_l_v.append(k_data["k_l"]["v"])
+                kpt_r_u.append(k_data["k_r"]["u"])
+                kpt_r_v.append(k_data["k_r"]["v"])
+        i_min = im_an[0]
+        i_max = im_an[-1]
+        i_n = i_max - i_min + 1 # Number of images to interpolate
+        interp_k_l_u = self.get_interp_values(im_an, kpt_l_u, i_min, i_max, i_n)
+        interp_k_l_v = self.get_interp_values(im_an, kpt_l_v, i_min, i_max, i_n)
+        interp_k_r_u = self.get_interp_values(im_an, kpt_r_u, i_min, i_max, i_n)
+        if is_rectified:
+            interp_k_r_v = interp_k_l_v
+        else:
+            interp_k_r_v = self.get_interp_values(im_an, kpt_r_v, i_min, i_max, i_n)
+        """ Store interpolation data into a new dict. """
+        data_ind_id_interp = {}
+        for i, (k_key, k_val) in enumerate(data_ind_id.items()):
+            if k_val is None: # If not an anchor
+                if i > i_min and i < i_max: # If inside the interpolated range
+                    # Replace None by the interpolated value
+                    ind = i - i_min
+                    k_l = {"u": int(interp_k_l_u[ind]),
+                           "v": int(interp_k_l_v[ind]),
+                           "is_interp": True}
+                    k_r = {"u": int(interp_k_r_u[ind]),
+                           "v": int(interp_k_r_v[ind]),
+                           "is_interp": True}
+                    data_ind_id_interp[k_key] = {"k_l": k_l, "k_r": k_r}
+        return data_ind_id_interp
+
+
+    def save_interp_data(self, ind_id, data_ind_id_interp):
+        """ 3. Save interpolated data """
+        for k_key, k_val in data_ind_id_interp.items():
+            self.Keypoints.update_ktp_pairs(k_key)
+            self.Keypoints.append_kpts(ind_id, k_val["k_l"], k_val["k_r"])
+
+
+    def start_interpolation(self, ind_id, is_rectified):
+        data_ind_id = self.get_kpt_data_given_ind_id(ind_id)
+        if data_ind_id is None:
+            return
+        data_ind_id_interp = self.interp_kpts(data_ind_id, is_rectified)
+        self.save_interp_data(ind_id, data_ind_id_interp)
+
+
 class Draw:
     def __init__(self, config):
         self.ind_im = 0
@@ -232,6 +278,8 @@ class Draw:
         dir_out_l = os.path.join(self.dir_data, c_data["subdir_output_l"])
         dir_out_r = os.path.join(self.dir_data, c_data["subdir_output_r"])
         self.Keypoints = Keypoints(dir_out_l, dir_out_r)
+        # Interpolation
+        self.Interpolation = Interpolation(self.Images, self.Keypoints)
 
 
     def load_vis_config(self, config):
@@ -471,41 +519,8 @@ class Draw:
 
 
     def interp_kpt_positions(self):
-        """ 1. Go through all picture-pairs and get all kpts
-                with `ind_id` = self.ind_id.
-
-                Save only the ones that were manually labelled,
-                since those are the accurate positions that are used
-                for interpolation.
-        """
-        ind_id_data = {}
-        count = 0
-        for i in range(self.n_im):
-            im_name = self.Images.get_im_pair_name(i)
-            self.Keypoints.update_ktp_pairs(im_name)
-            k_l, k_r = self.Keypoints.get_kpts_given_ind_id(self.ind_id)
-            ind_id_data[im_name] = None
-            if k_l is not None and k_r is not None:
-                if not k_l["is_interp"] and not k_r["is_interp"]:
-                    ind_id_data[im_name] = {"k_l": k_l, "k_r": k_r}
-                    count += 1
-        #print(ind_id_data)
-        if count < 2:
-            return # Need at least 2 points to interpolate
-        """ 2. Interpolate in between frames """
-        ind_id_data_interp = self.Keypoints.interpolate(self.n_im,
-                                                        ind_id_data,
-                                                        self.is_rectified)
-        #print(ind_id_data_interp)
-        """ 3. Save interpolated data """
-        for i in range(self.n_im):
-            im_name = self.Images.get_im_pair_name(i)
-            self.Keypoints.update_ktp_pairs(im_name)
-            kpts = ind_id_data_interp[im_name]
-            if kpts is not None:
-                self.Keypoints.append_kpts(self.ind_id, kpts["k_l"], kpts["k_r"])
-        """ 4. Update the GUI image to show
-                the newly interpolated keypoints """
+        self.Interpolation.start_interpolation(self.ind_id, self.is_rectified)
+        """ Show the newly interpolated keypoints """
         self.update_im_with_keypoints(True)
 
 
