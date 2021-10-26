@@ -111,7 +111,7 @@ class Keypoints:
             os.mkdir(self.dir_out_r)
 
 
-    def remove_unpaired_kpts(self):
+    def eliminate_unpaired_kpts(self):
         keys_l = self.kpts_l.keys()
         keys_r = self.kpts_r.keys()
         not_pair = list(set(keys_l).symmetric_difference(keys_r))
@@ -121,12 +121,12 @@ class Keypoints:
 
 
     def save_kpt_pairs_to_files(self):
-        self.remove_unpaired_kpts()
+        self.eliminate_unpaired_kpts()
         utils.write_yaml_data(self.path_l, self.kpts_l)
         utils.write_yaml_data(self.path_r, self.kpts_r)
 
 
-    def remove_kpts(self, ind_id):
+    def eliminate_kpts(self, ind_id):
         self.kpts_l.pop(ind_id, None)
         self.kpts_r.pop(ind_id, None)
         # Save kpts to .yaml
@@ -465,9 +465,9 @@ class Draw:
         self.copy_im_kpt_to_all()
 
 
-    def remove_selected_kpts(self):
+    def eliminate_selected_kpts(self):
         if self.n_kpt_selected > 0:
-            self.Keypoints.remove_kpts(self.ind_id)
+            self.Keypoints.eliminate_kpts(self.ind_id)
             self.update_im_with_keypoints(False)
 
 
@@ -491,22 +491,23 @@ class Draw:
                     ind_id_data[im_name] = {"k_l": k_l, "k_r": k_r}
                     count += 1
         #print(ind_id_data)
-        if count > 1: # Need at least 2 points to interpolate
-            """ 2. Interpolate in between frames """
-            ind_id_data_interp = self.Keypoints.interpolate(self.n_im,
-                                                            ind_id_data,
-                                                            self.is_rectified)
-            #print(ind_id_data_interp)
-            """ 3. Save interpolated data """
-            for i in range(self.n_im):
-                im_name = self.Images.get_im_pair_name(i)
-                self.Keypoints.update_ktp_pairs(im_name)
-                kpts = ind_id_data_interp[im_name]
-                if kpts is not None:
-                    self.Keypoints.append_kpts(self.ind_id, kpts["k_l"], kpts["k_r"])
-            """ 4. Update the GUI image to show
-                    the newly interpolated keypoints """
-            self.update_im_with_keypoints(True)
+        if count < 2:
+            return # Need at least 2 points to interpolate
+        """ 2. Interpolate in between frames """
+        ind_id_data_interp = self.Keypoints.interpolate(self.n_im,
+                                                        ind_id_data,
+                                                        self.is_rectified)
+        #print(ind_id_data_interp)
+        """ 3. Save interpolated data """
+        for i in range(self.n_im):
+            im_name = self.Images.get_im_pair_name(i)
+            self.Keypoints.update_ktp_pairs(im_name)
+            kpts = ind_id_data_interp[im_name]
+            if kpts is not None:
+                self.Keypoints.append_kpts(self.ind_id, kpts["k_l"], kpts["k_r"])
+        """ 4. Update the GUI image to show
+                the newly interpolated keypoints """
+        self.update_im_with_keypoints(True)
 
 
     def get_draw(self):
@@ -533,7 +534,7 @@ class Interface:
         self.key_im_next = c_keys["im_next"]
         self.key_id_prev = c_keys["id_prev"]
         self.key_id_next = c_keys["id_next"]
-        self.key_remove = c_keys["remove"]
+        self.key_elimin = c_keys["elimin"]
         self.key_interp = c_keys["interp"]
 
 
@@ -558,8 +559,8 @@ class Interface:
             self.Draw.id_next()
         elif key_pressed == ord(self.key_id_prev):
             self.Draw.id_prev()
-        elif key_pressed == ord(self.key_remove):
-            self.Draw.remove_selected_kpts()
+        elif key_pressed == ord(self.key_elimin):
+            self.Draw.eliminate_selected_kpts()
         elif key_pressed == ord(self.key_interp):
             self.Draw.interp_kpt_positions()
 
