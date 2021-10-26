@@ -365,8 +365,7 @@ class Draw:
         self.im_draw_guide_line()
 
 
-    def mouse_lclick(self, u, v):
-        self.update_mouse_position(u, v)
+    def mouse_lclick(self):
         # Save new keypoint
         if self.is_mouse_on_im_l or self.is_mouse_on_im_r:
             if self.n_kpt_selected < 2:
@@ -542,7 +541,7 @@ class Interface:
         if (event == cv.EVENT_MOUSEMOVE):
             self.Draw.mouse_move(x, y)
         elif (event == cv.EVENT_LBUTTONUP):
-            self.Draw.mouse_lclick(x, y)
+            self.Draw.mouse_lclick()
 
 
     def create_window(self):
