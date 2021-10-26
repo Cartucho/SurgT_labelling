@@ -480,6 +480,7 @@ class Draw:
                 for interpolation.
         """
         ind_id_data = {}
+        count = 0
         for i in range(self.n_im):
             im_name = self.Images.get_im_pair_name(i)
             self.Keypoints.update_ktp_pairs(im_name)
@@ -488,22 +489,24 @@ class Draw:
             if k_l is not None and k_r is not None:
                 if not k_l["is_interp"] and not k_r["is_interp"]:
                     ind_id_data[im_name] = {"k_l": k_l, "k_r": k_r}
+                    count += 1
         #print(ind_id_data)
-        """ 2. Interpolate in between frames """
-        ind_id_data_interp = self.Keypoints.interpolate(self.n_im,
-                                                        ind_id_data,
-                                                        self.is_rectified)
-        #print(ind_id_data_interp)
-        """ 3. Save interpolated data """
-        for i in range(self.n_im):
-            im_name = self.Images.get_im_pair_name(i)
-            self.Keypoints.update_ktp_pairs(im_name)
-            kpts = ind_id_data_interp[im_name]
-            if kpts is not None:
-                self.Keypoints.append_kpts(self.ind_id, kpts["k_l"], kpts["k_r"])
-        """ 4. Update the GUI image to show
-                the newly interpolated keypoints """
-        self.update_im_with_keypoints(True)
+        if count > 1: # Need at least 2 points to interpolate
+            """ 2. Interpolate in between frames """
+            ind_id_data_interp = self.Keypoints.interpolate(self.n_im,
+                                                            ind_id_data,
+                                                            self.is_rectified)
+            #print(ind_id_data_interp)
+            """ 3. Save interpolated data """
+            for i in range(self.n_im):
+                im_name = self.Images.get_im_pair_name(i)
+                self.Keypoints.update_ktp_pairs(im_name)
+                kpts = ind_id_data_interp[im_name]
+                if kpts is not None:
+                    self.Keypoints.append_kpts(self.ind_id, kpts["k_l"], kpts["k_r"])
+            """ 4. Update the GUI image to show
+                    the newly interpolated keypoints """
+            self.update_im_with_keypoints(True)
 
 
     def get_draw(self):
