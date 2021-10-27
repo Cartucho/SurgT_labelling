@@ -31,10 +31,10 @@ class Keypoints:
         kpt_n = {"u": u, "v": v, "is_interp": False}
         if is_l_kpt:
             self.new_l = kpt_n
-            self.kpts_l[ind_id] = kpt_n
+            self.kpts_l[ind_id] = self.new_l
         else:
             self.new_r = kpt_n
-            self.kpts_r[ind_id] = kpt_n
+            self.kpts_r[ind_id] = self.new_r
         self.check_for_new_kpt_pair()
 
 
