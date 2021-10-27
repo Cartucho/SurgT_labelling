@@ -21,7 +21,7 @@ class Keypoints:
         self.new_r = None
 
 
-    def append_kpts(self, ind_id, kpt_l, kpt_r):
+    def set_kpts(self, ind_id, kpt_l, kpt_r):
         self.kpts_l[ind_id] = kpt_l
         self.kpts_r[ind_id] = kpt_r
         self.save_kpt_pairs_to_files()
@@ -36,6 +36,17 @@ class Keypoints:
             self.new_r = kpt_n
             self.kpts_r[ind_id] = self.new_r
         self.check_for_new_kpt_pair()
+
+    def new_intrp_pair(self, ind_id, u_l, v_l, u_r, v_r):
+        k_l = {"u": u_l,
+               "v": v_l,
+               "is_interp": True,
+               "is_visible": True}
+        k_r = {"u": u_r,
+               "v": v_r,
+               "is_interp": True,
+               "is_visible": True}
+        self.set_kpts(ind_id, k_l, k_r)
 
 
     def get_new_kpt_l(self):
@@ -207,13 +218,14 @@ class Interpolation:
             im_name = self.Images.get_im_pair_name(i)
             self.Keypoints.update_ktp_pairs(im_name)
             k_l, k_r = self.Keypoints.get_kpts_given_ind_id(ind_id)
-            if k_l is not None and k_r is not None:
-                if not k_l["is_visible"] or not k_r["is_visible"]:
-                    break
-                elif not k_l["is_interp"] and not k_r["is_interp"]:
-                    data_kpt_intrp[im_name] = {"k_l": k_l, "k_r": k_r}
-            else:
+            if k_l is None or k_r is None:
                 data_kpt_intrp[im_name] = None
+                continue
+            if not k_l["is_visible"] or not k_r["is_visible"]:
+                break
+            data_kpt_intrp[im_name] = None
+            if not k_l["is_interp"] and not k_r["is_interp"]:
+                data_kpt_intrp[im_name] = {"k_l": k_l, "k_r": k_r}
         return data_kpt_intrp
 
 
@@ -241,14 +253,14 @@ class Interpolation:
         return data_kpt_intrp
 
 
-    def interp_kpts(self, data_kpt_intrp, is_rectified):
+    def interp_kpts_and_save(self, data_kpt_intrp, is_rectified, ind_id):
         """ Interpolate in between frames """
         im_an = [] # Anchors used for interpolation
         kpt_l_u = []
         kpt_l_v = []
         kpt_r_u = []
         kpt_r_v = []
-        for i, k_data in enumerate(data_kpt_intrp.values()):
+        for i, (k_key, k_data) in enumerate(natsorted(data_kpt_intrp.items())):
             if k_data is not None:
                 im_an.append(i)
                 kpt_l_u.append(k_data["k_l"]["u"])
@@ -265,38 +277,25 @@ class Interpolation:
             interp_k_r_v = interp_k_l_v
         else:
             interp_k_r_v = self.get_interp_values(im_an, kpt_r_v, i_min, i_max, i_n)
-        """ Store interpolation data into a new dict. """
-        data_kpt_intrp_copy = {}
-        for i, (k_key, k_val) in enumerate(data_kpt_intrp.items()):
+        """ Save interpolation data """
+        for i, (k_key, k_val) in enumerate(natsorted(data_kpt_intrp.items())):
             if k_val is None: # If not an anchor
                 if i > i_min and i < i_max: # If inside the interpolated range
                     # Replace None by the interpolated value
                     ind = i - i_min
-                    k_l = {"u": int(interp_k_l_u[ind]),
-                           "v": int(interp_k_l_v[ind]),
-                           "is_interp": True,
-                           "is_visible": True}
-                    k_r = {"u": int(interp_k_r_u[ind]),
-                           "v": int(interp_k_r_v[ind]),
-                           "is_interp": True,
-                           "is_visible": True}
-                    data_kpt_intrp_copy[k_key] = {"k_l": k_l, "k_r": k_r}
-        return data_kpt_intrp_copy
-
-
-    def save_interp_data(self, ind_id, data_kpt_intrp):
-        """ 3. Save interpolated data """
-        for k_key, k_val in data_kpt_intrp.items():
-            self.Keypoints.update_ktp_pairs(k_key)
-            self.Keypoints.append_kpts(ind_id, k_val["k_l"], k_val["k_r"])
+                    u_l = int(interp_k_l_u[ind])
+                    v_l = int(interp_k_l_v[ind])
+                    u_r = int(interp_k_r_u[ind])
+                    v_r = int(interp_k_r_v[ind])
+                    self.Keypoints.update_ktp_pairs(k_key)
+                    self.Keypoints.new_intrp_pair(ind_id, u_l, v_l, u_r, v_r)
 
 
     def start(self, ind_id, ind_im, is_rectified):
         data_kpt_intrp = self.get_kpt_data_given_id_and_im(ind_id, ind_im)
         if data_kpt_intrp is None:
             return
-        data_kpt_intrp = self.interp_kpts(data_kpt_intrp, is_rectified)
-        self.save_interp_data(ind_id, data_kpt_intrp)
+        self.interp_kpts_and_save(data_kpt_intrp, is_rectified, ind_id)
 
 
 class Draw:
