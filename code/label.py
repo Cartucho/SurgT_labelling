@@ -278,6 +278,7 @@ class Interpolation:
         else:
             interp_k_r_v = self.get_interp_values(im_an, kpt_r_v, i_min, i_max, i_n)
         """ Save interpolation data """
+        im_h, im_w = self.Images.get_resolution()
         for i, (k_key, k_val) in enumerate(natsorted(data_kpt_intrp.items())):
             if k_val is None: # If not an anchor
                 if i > i_min and i < i_max: # If inside the interpolated range
@@ -287,6 +288,14 @@ class Interpolation:
                     v_l = int(interp_k_l_v[ind])
                     u_r = int(interp_k_r_u[ind])
                     v_r = int(interp_k_r_v[ind])
+                    if u_l < 0 or u_r < 0:
+                        continue
+                    if u_l > im_w or u_r > im_w:
+                        continue
+                    if v_l > im_h or v_r > im_h:
+                        continue
+                    if v_l < 0 or v_r < 0:
+                        continue
                     self.Keypoints.update_ktp_pairs(k_key)
                     self.Keypoints.new_intrp_pair(ind_id, u_l, v_l, u_r, v_r)
 
