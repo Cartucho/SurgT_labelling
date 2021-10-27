@@ -621,8 +621,8 @@ class Interface:
         self.key_im_next = c_keys["im_next"]
         self.key_id_prev = c_keys["id_prev"]
         self.key_id_next = c_keys["id_next"]
-        self.key_elimin = c_keys["elimin"]
-        self.key_interp = c_keys["interp"]
+        self.key_elimin  = c_keys["elimin"]
+        self.key_interp  = c_keys["interp"]
         self.key_visibl  = c_keys["visible"]
 
 
