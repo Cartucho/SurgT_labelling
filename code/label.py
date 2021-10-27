@@ -28,7 +28,7 @@ class Keypoints:
 
 
     def new_kpt(self, is_l_kpt, ind_id, u, v):
-        kpt_n = {"u": u, "v": v, "is_interp": False}
+        kpt_n = {"u": u, "v": v, "is_interp": False, "is_visible": True}
         if is_l_kpt:
             self.new_l = kpt_n
             self.kpts_l[ind_id] = self.new_l
@@ -111,6 +111,35 @@ class Keypoints:
         assert(len(self.kpts_l) == len(self.kpts_r))
 
 
+    def toggle_is_visibile(self, ind_id):
+        """
+         Cases:
+         1. No kpt labeled
+
+                If kpt is None, then set `is_visible`=False
+
+         2. Kpt labeled
+
+                If `is_visible`=True, then set `is_visible`=False
+
+         3. Picture already marked as not visible
+
+                If `is_visible`=False, then delete the kpts to
+                relabel them later, which will set `is_visible`=True
+        """
+        kpt_l, kpt_r = self.get_kpts_given_ind_id(ind_id)
+        # Case 3.
+        if kpt_l is not None and kpt_r is not None:
+            if not kpt_l["is_visible"] and not kpt_r["is_visible"]:
+                self.eliminate_kpts(ind_id)
+                return
+        # Case 1. and 2.
+        kpt_not_vis = {"is_visible": False}
+        self.kpts_l[ind_id] = kpt_not_vis
+        self.kpts_r[ind_id] = kpt_not_vis
+        self.save_kpt_pairs_to_files()
+
+
 class Images:
     def __init__(self, dir_l, dir_r, im_format):
         path_l = os.path.join(dir_l, "*{}".format(im_format))
@@ -172,38 +201,54 @@ class Interpolation:
         return np.rint(interp_values)
 
 
-    def get_kpt_data_given_ind_id(self, ind_id):
-        """ 1. Go through all picture-pairs and get all kpts
-                with `ind_id` = self.ind_id.
-
-                Save only the ones that were manually labelled,
-                since those are the accurate positions that are used
-                for interpolation.
-        """
-        data_ind_id = {}
-        count = 0
-        for i in range(self.Images.n_im):
+    def get_kpt_anc_in_range(self, rng, ind_id, data_kpt_intrp):
+        """ Get anchors for interpolation """
+        for i in rng:
             im_name = self.Images.get_im_pair_name(i)
             self.Keypoints.update_ktp_pairs(im_name)
             k_l, k_r = self.Keypoints.get_kpts_given_ind_id(ind_id)
-            data_ind_id[im_name] = None
             if k_l is not None and k_r is not None:
-                if not k_l["is_interp"] and not k_r["is_interp"]:
-                    data_ind_id[im_name] = {"k_l": k_l, "k_r": k_r}
-                    count += 1
-        if count < 2: # Need at least 2 points to interpolate
+                if not k_l["is_visible"] or not k_r["is_visible"]:
+                    break
+                elif not k_l["is_interp"] and not k_r["is_interp"]:
+                    data_kpt_intrp[im_name] = {"k_l": k_l, "k_r": k_r}
+            else:
+                data_kpt_intrp[im_name] = None
+        return data_kpt_intrp
+
+
+    def get_kpt_data_given_id_and_im(self, ind_id, ind_im):
+        """ 1. Go through all picture-pairs and get all kpts
+                with `ind_id` = self.ind_id.
+
+                Get only the ones that were manually labelled,
+                since those are the accurate positions that are used
+                for interpolation.
+
+                Get only visible kpts that are connected to ind_im.
+        """
+        data_kpt_intrp = {}
+        # Get data before `ind_im`
+        rng = range(ind_im, -1, -1) # From `ind_im` to 0, since exclusive
+        data_kpt_intrp = self.get_kpt_anc_in_range(rng, ind_id, data_kpt_intrp)
+        # Get data after `ind_im`
+        rng = range(ind_im + 1, self.Images.n_im, 1)
+        data_kpt_intrp = self.get_kpt_anc_in_range(rng, ind_id, data_kpt_intrp)
+        # Count non-Nones
+        n_non_nones = sum(x is not None for x in data_kpt_intrp.values())
+        if n_non_nones < 2: # Need at least 2 points to interpolate
             return None
-        return data_ind_id
+        return data_kpt_intrp
 
 
-    def interp_kpts(self, data_ind_id, is_rectified):
+    def interp_kpts(self, data_kpt_intrp, is_rectified):
         """ Interpolate in between frames """
         im_an = [] # Anchors used for interpolation
         kpt_l_u = []
         kpt_l_v = []
         kpt_r_u = []
         kpt_r_v = []
-        for i, k_data in enumerate(data_ind_id.values()):
+        for i, k_data in enumerate(data_kpt_intrp.values()):
             if k_data is not None:
                 im_an.append(i)
                 kpt_l_u.append(k_data["k_l"]["u"])
@@ -221,35 +266,37 @@ class Interpolation:
         else:
             interp_k_r_v = self.get_interp_values(im_an, kpt_r_v, i_min, i_max, i_n)
         """ Store interpolation data into a new dict. """
-        data_ind_id_interp = {}
-        for i, (k_key, k_val) in enumerate(data_ind_id.items()):
+        data_kpt_intrp_copy = {}
+        for i, (k_key, k_val) in enumerate(data_kpt_intrp.items()):
             if k_val is None: # If not an anchor
                 if i > i_min and i < i_max: # If inside the interpolated range
                     # Replace None by the interpolated value
                     ind = i - i_min
                     k_l = {"u": int(interp_k_l_u[ind]),
                            "v": int(interp_k_l_v[ind]),
-                           "is_interp": True}
+                           "is_interp": True,
+                           "is_visible": True}
                     k_r = {"u": int(interp_k_r_u[ind]),
                            "v": int(interp_k_r_v[ind]),
-                           "is_interp": True}
-                    data_ind_id_interp[k_key] = {"k_l": k_l, "k_r": k_r}
-        return data_ind_id_interp
+                           "is_interp": True,
+                           "is_visible": True}
+                    data_kpt_intrp_copy[k_key] = {"k_l": k_l, "k_r": k_r}
+        return data_kpt_intrp_copy
 
 
-    def save_interp_data(self, ind_id, data_ind_id_interp):
+    def save_interp_data(self, ind_id, data_kpt_intrp):
         """ 3. Save interpolated data """
-        for k_key, k_val in data_ind_id_interp.items():
+        for k_key, k_val in data_kpt_intrp.items():
             self.Keypoints.update_ktp_pairs(k_key)
             self.Keypoints.append_kpts(ind_id, k_val["k_l"], k_val["k_r"])
 
 
-    def start_interpolation(self, ind_id, is_rectified):
-        data_ind_id = self.get_kpt_data_given_ind_id(ind_id)
-        if data_ind_id is None:
+    def start(self, ind_id, ind_im, is_rectified):
+        data_kpt_intrp = self.get_kpt_data_given_id_and_im(ind_id, ind_im)
+        if data_kpt_intrp is None:
             return
-        data_ind_id_interp = self.interp_kpts(data_ind_id, is_rectified)
-        self.save_interp_data(ind_id, data_ind_id_interp)
+        data_kpt_intrp = self.interp_kpts(data_kpt_intrp, is_rectified)
+        self.save_interp_data(ind_id, data_kpt_intrp)
 
 
 class Draw:
@@ -357,18 +404,33 @@ class Draw:
         cv.putText(im, txt, (left, bot), font, font_scale, color, thickness)
 
 
+    def im_draw_kpt_not_vis(self, im, color):
+        s_t = self.kpt_s_thick_pxl
+        cv.line(im, (0, 0), (self.im_w, self.im_h), color, s_t)
+        cv.line(im, (self.im_w, 0), (0, self.im_h), color, s_t)
+
+
     def im_draw_kpt_pair(self, ind_id, kpt, is_left):
+        # Set color
+        color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
+        if ind_id == self.ind_id:
+            self.n_kpt_selected += 1
+            color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
+        # Draw X if not visible and return
+        if not kpt["is_visible"]:
+            if ind_id == self.ind_id: # Only if the ind_id is selected
+                if is_left:
+                    self.im_draw_kpt_not_vis(self.im_l_kpt, color)
+                else:
+                    self.im_draw_kpt_not_vis(self.im_r_kpt, color)
+            return
+        # Draw keypoint (cross + id)
         kpt_u = kpt["u"]
         kpt_v = kpt["v"]
         is_interp = kpt["is_interp"]
         txt = "{}".format(ind_id)
         if is_interp:
-            txt += "'"
-        # Draw cross
-        color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
-        if ind_id == self.ind_id:
-            self.n_kpt_selected += 1
-            color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
+            txt += "'" # If `is_interp` add a symbol
         if is_left:
             self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color)
             self.im_draw_kpt_id(self.im_l_kpt, txt, kpt_u, kpt_v, color)
@@ -500,16 +562,14 @@ class Draw:
 
     def id_next(self):
         self.ind_id += 1
-        self.im_draw_all_kpts()
-        self.copy_im_kpt_to_all()
+        self.update_im_with_keypoints(False)
 
 
     def id_prev(self):
         self.ind_id -=1
         if self.ind_id < 0:
             self.ind_id = 0
-        self.im_draw_all_kpts()
-        self.copy_im_kpt_to_all()
+        self.update_im_with_keypoints(False)
 
 
     def eliminate_selected_kpts(self):
@@ -519,9 +579,14 @@ class Draw:
 
 
     def interp_kpt_positions(self):
-        self.Interpolation.start_interpolation(self.ind_id, self.is_rectified)
+        self.Interpolation.start(self.ind_id, self.ind_im, self.is_rectified)
         """ Show the newly interpolated keypoints """
         self.update_im_with_keypoints(True)
+
+
+    def toggle_kpt_visibility(self):
+        self.Keypoints.toggle_is_visibile(self.ind_id)
+        self.update_im_with_keypoints(False)
 
 
     def get_draw(self):
@@ -550,6 +615,7 @@ class Interface:
         self.key_id_next = c_keys["id_next"]
         self.key_elimin = c_keys["elimin"]
         self.key_interp = c_keys["interp"]
+        self.key_visibl  = c_keys["visible"]
 
 
     def mouse_listener(self, event, x, y, flags, param):
@@ -577,6 +643,8 @@ class Interface:
             self.Draw.eliminate_selected_kpts()
         elif key_pressed == ord(self.key_interp):
             self.Draw.interp_kpt_positions()
+        elif key_pressed == ord(self.key_visibl):
+            self.Draw.toggle_kpt_visibility()
 
 
     def main_loop(self):

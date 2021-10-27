@@ -15,6 +15,7 @@ key: # Interface keys
     id_next: "w" # Go to next id
     elimin: "e"  # Eliminate selected keypoints
     interp: "i"  # Interpolation
+    visible: "v" # Is kpt visible? Toggle key
 # Code configuration
 vis:
     window_name: "Stereo-matches labeler"
