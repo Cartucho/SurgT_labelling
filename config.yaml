@@ -16,6 +16,7 @@ key: # Interface keys
     elimin: "e"  # Eliminate selected keypoints
     interp: "i"  # Interpolation
     visible: "v" # Is kpt visible? Toggle key
+    range: "r"   # Range
 # Code configuration
 vis:
     window_name: "Stereo-matches labeler"

@@ -318,6 +318,8 @@ class Draw:
         self.is_mouse_on_im_l = False
         self.is_mouse_on_im_r = False
         self.initialize_im()
+        self.range_start = -1
+        self.range_end   = -1
 
 
     def load_data_config(self, config):
@@ -510,11 +512,13 @@ class Draw:
     def add_status_text(self, bar):
         # Message
         txt = "Im: [{}/{}]".format(self.ind_im, self.n_im - 1)
+        if self.range_start != -1:
+            txt = "Im: [{} -> {}]".format(self.range_start, self.range_end)
         # Text specifications
+        color = np.array(self.bar_text_c, dtype=np.uint8).tolist()
         font = cv.FONT_HERSHEY_DUPLEX
         thickness = 2
         font_scale = self.get_text_scale_to_fit_height(txt, font, thickness)
-        color = np.array(self.bar_text_c, dtype=np.uint8).tolist()
         # Centre text vertically
         left = self.bar_m_l_pxl
         bot = int((self.bar_h_pxl + self.bar_text_h_pxl) / 2.0)
@@ -542,13 +546,13 @@ class Draw:
         self.im_l_kpt = np.copy(im_l)
         self.im_r_kpt = np.copy(im_r)
         if reload_kpt:
-            self.load_kpt_data()
+            self.load_kpt_data(self.ind_im)
         self.im_draw_all_kpts()
         self.copy_im_kpt_to_all()
 
 
-    def load_kpt_data(self):
-        im_name = self.Images.get_im_pair_name(self.ind_im)
+    def load_kpt_data(self, ind_im):
+        im_name = self.Images.get_im_pair_name(ind_im)
         self.Keypoints.update_ktp_pairs(im_name)
 
 
@@ -581,9 +585,17 @@ class Draw:
 
 
     def eliminate_selected_kpts(self):
-        if self.n_kpt_selected > 0:
-            self.Keypoints.eliminate_kpts(self.ind_id)
+        i_min, i_max = self.get_range_min_and_max()
+        if i_min is not None and i_max is not None:
+            for i in range(i_min, i_max + 1):
+                self.load_kpt_data(i)
+                self.Keypoints.eliminate_kpts(self.ind_id)
             self.update_im_with_keypoints(False)
+            self.range_toggle()
+        else:
+            if self.n_kpt_selected > 0:
+                self.Keypoints.eliminate_kpts(self.ind_id)
+                self.update_im_with_keypoints(False)
 
 
     def interp_kpt_positions(self):
@@ -592,9 +604,39 @@ class Draw:
         self.update_im_with_keypoints(True)
 
 
+    def get_range_min_and_max(self):
+        i_min = None
+        i_max = None
+        if self.range_start != -1 and self.range_end != -1:
+            i_min = min(self.range_start, self.range_end)
+            i_max = max(self.range_start, self.range_end)
+        return i_min, i_max
+
+
     def toggle_kpt_visibility(self):
-        self.Keypoints.toggle_is_visibile(self.ind_id)
+        i_min, i_max = self.get_range_min_and_max()
+        if i_min is not None and i_max is not None:
+            for i in range(i_min, i_max + 1):
+                self.load_kpt_data(i)
+                self.Keypoints.toggle_is_visibile(self.ind_id)
+            self.range_toggle()
+        else:
+            self.Keypoints.toggle_is_visibile(self.ind_id)
         self.update_im_with_keypoints(False)
+
+
+    def range_toggle(self):
+        if self.range_start == -1:
+            self.range_start = self.ind_im
+            self.range_end   = self.ind_im
+        else:
+            self.range_start = -1
+            self.range_end   = -1
+
+
+    def range_update(self):
+        if self.range_start != -1:
+            self.range_end = self.ind_im
 
 
     def get_draw(self):
@@ -624,6 +666,7 @@ class Interface:
         self.key_elimin  = c_keys["elimin"]
         self.key_interp  = c_keys["interp"]
         self.key_visibl  = c_keys["visible"]
+        self.key_range   = c_keys["range"]
 
 
     def mouse_listener(self, event, x, y, flags, param):
@@ -641,8 +684,10 @@ class Interface:
     def check_key_pressed(self, key_pressed):
         if key_pressed == ord(self.key_im_next):
             self.Draw.im_next()
+            self.Draw.range_update()
         elif key_pressed == ord(self.key_im_prev):
             self.Draw.im_prev()
+            self.Draw.range_update()
         elif key_pressed == ord(self.key_id_next):
             self.Draw.id_next()
         elif key_pressed == ord(self.key_id_prev):
@@ -653,6 +698,8 @@ class Interface:
             self.Draw.interp_kpt_positions()
         elif key_pressed == ord(self.key_visibl):
             self.Draw.toggle_kpt_visibility()
+        elif key_pressed == ord(self.key_range):
+            self.Draw.range_toggle()
 
 
     def main_loop(self):
