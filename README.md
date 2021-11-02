@@ -2,6 +2,7 @@
 
 The goal of this tool is to label matches between the left and right images of a stereo video. I also added an interpolation feature so that you label only a few frame-pairs and then you press `i` (standing for interpolate) to automatically interpolate the labels for the other frame-pairs in between the ones that you labeled.
 
+<img src="https://user-images.githubusercontent.com/15831541/139836761-24aeb645-61ef-47a4-9752-87411b5634e8.png" width="80%">
 
 On the bottom left of the interface you can see the current index of the image pair and the id of the currently selected keypoint. As I will explain, the idea is to label the keypoints one by one, from `id=0` until `id= number of keypoints that you will label`. I set the `w` `a` `s` `d` keys for navigating through the images and keypoint ids. By default `a` and `d` are used to go to the previous and next image, and `w` and `s` to go to the next and previous keypoint id. If you don't like these keys you can change them according to your preferance by editing the [config.yaml](https://github.com/Cartucho/stereo_labeling/blob/main/config.yaml) file. It is also in the [config.yaml](https://github.com/Cartucho/stereo_labeling/blob/main/config.yaml) file where you set the input directory, containing the images that you will label. I assume that you will have a folder with the left images, and another one with the right images.
 
