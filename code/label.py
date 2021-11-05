@@ -359,6 +359,11 @@ class Draw:
         self.kpt_color_not_s = c_kpt["color_not_s"]
         self.kpt_s_thick_pxl = c_kpt["s_thick_pxl"]
         self.kpt_id_v_marg_pxl = c_kpt["id_v_marg_pxl"]
+        c_zoom = c_vis["zoom"]
+        self.zoom_color = c_zoom["color"]
+        self.zoom_rect_w_pxl = c_zoom["rect_w_pxl"]
+        self.zoom_rect_h_pxl = c_zoom["rect_h_pxl"]
+        self.zoom_thick_pxl  = c_zoom["thick_pxl"]
 
 
     def initialize_im(self):
@@ -423,18 +428,42 @@ class Draw:
         cv.line(im, (self.im_w, 0), (0, self.im_h), color, s_t)
 
 
+    def im_draw_zoom_rect(self, is_left):
+        color = np.array(self.zoom_color, dtype=np.uint8).tolist()
+        im = None
+        kpt = None
+        if is_left:
+            kpt = self.zoom_kpt_l
+            im = self.im_l_kpt
+        else:
+            kpt = self.zoom_kpt_r
+            im = self.im_r_kpt
+        if kpt is None:
+            return
+        kpt_u = kpt["u"]
+        kpt_v = kpt["v"]
+        left_top = (kpt_u - self.zoom_rect_w_pxl, kpt_v - self.zoom_rect_h_pxl)
+        right_bot = (kpt_u + self.zoom_rect_w_pxl, kpt_v + self.zoom_rect_h_pxl)
+        cv.rectangle(im, left_top, right_bot, color, self.zoom_thick_pxl)
+
+
     def im_draw_kpt_pair(self, ind_id, kpt, is_left):
+        kpt_u = kpt["u"]
+        kpt_v = kpt["v"]
+        is_interp = kpt["is_interp"]
+        is_visible = kpt["is_visible"]
         # Set color
         color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
         if ind_id == self.ind_id:
             self.n_kpt_selected += 1
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
             if is_left:
-                self.zoom_kpt_l = kpt
+                print("here!")
+                self.zoom_kpt_l = kpt.copy()
             else:
-                self.zoom_kpt_r = kpt
+                self.zoom_kpt_r = kpt.copy()
         # Draw X if not visible and return
-        if not kpt["is_visible"]:
+        if not is_visible:
             if ind_id == self.ind_id: # Only if the ind_id is selected
                 if is_left:
                     self.im_draw_kpt_not_vis(self.im_l_kpt, color)
@@ -442,9 +471,6 @@ class Draw:
                     self.im_draw_kpt_not_vis(self.im_r_kpt, color)
             return
         # Draw keypoint (cross + id)
-        kpt_u = kpt["u"]
-        kpt_v = kpt["v"]
-        is_interp = kpt["is_interp"]
         txt = "{}".format(ind_id)
         if is_interp:
             txt += "'" # If `is_interp` add a symbol
@@ -463,6 +489,11 @@ class Draw:
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True)
         for kpt_r_key, kpt_r_val in kpts_r.items():
             self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False)
+        print(self.zoom_kpt_l)
+        print(self.zoom_kpt_r)
+        # Draw zoom rectangle
+        self.im_draw_zoom_rect(True)
+        self.im_draw_zoom_rect(False)
 
 
     def update_mouse_position(self, u, v):
