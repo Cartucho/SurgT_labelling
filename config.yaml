@@ -35,3 +35,7 @@ vis:
         color_not_s: [0, 255, 0] # [B, G, R] Not selected
         s_thick_pxl: 3 # Outer square thickness [pixels]
         id_v_marg_pxl: 10 # Vertical margin [pixels]
+    zoom: # for the zoom-mode
+        color: [255, 0, 0] # [B, G, R]
+        rect_w_pxl: 300 # Rectangle width in pixels
+        rect_h_pxl: 150 # Rectangle height in pixels
