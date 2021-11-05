@@ -321,6 +321,8 @@ class Draw:
         self.range_start = -1
         self.range_end   = -1
         self.is_zoom_on  = False
+        self.zoom_kpt_l  = None
+        self.zoom_kpt_r  = None
 
 
     def load_data_config(self, config):
@@ -427,6 +429,10 @@ class Draw:
         if ind_id == self.ind_id:
             self.n_kpt_selected += 1
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
+            if is_left:
+                self.zoom_kpt_l = kpt
+            else:
+                self.zoom_kpt_r = kpt
         # Draw X if not visible and return
         if not kpt["is_visible"]:
             if ind_id == self.ind_id: # Only if the ind_id is selected
@@ -643,6 +649,8 @@ class Draw:
     def zoom_toggle(self):
         self.is_zoom_on = not self.is_zoom_on
         print("zoommmm {}".format(self.is_zoom_on))
+        print(self.zoom_kpt_l)
+        print(self.zoom_kpt_r)
 
 
     def get_draw(self):
