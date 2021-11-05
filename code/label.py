@@ -320,6 +320,7 @@ class Draw:
         self.initialize_im()
         self.range_start = -1
         self.range_end   = -1
+        self.is_zoom_on  = False
 
 
     def load_data_config(self, config):
@@ -639,6 +640,11 @@ class Draw:
             self.range_end = self.ind_im
 
 
+    def zoom_toggle(self):
+        self.is_zoom_on = not self.is_zoom_on
+        print("zoommmm {}".format(self.is_zoom_on))
+
+
     def get_draw(self):
         # Stack images together
         draw = np.concatenate((self.im_l_all, self.im_r_all), axis=1)
@@ -667,6 +673,7 @@ class Interface:
         self.key_interp  = c_keys["interp"]
         self.key_visibl  = c_keys["visible"]
         self.key_range   = c_keys["range"]
+        self.key_zoom    = c_keys["zoom"]
 
 
     def mouse_listener(self, event, x, y, flags, param):
@@ -700,6 +707,8 @@ class Interface:
             self.Draw.toggle_kpt_visibility()
         elif key_pressed == ord(self.key_range):
             self.Draw.range_toggle()
+        elif key_pressed == ord(self.key_zoom):
+            self.Draw.zoom_toggle()
 
 
     def main_loop(self):

@@ -17,6 +17,7 @@ key: # Interface keys
     interp: "i"  # Interpolation
     visible: "v" # Is kpt visible? Toggle key
     range: "r"   # Range
+    zoom: "z"    # Toggle zoom-mode
 # Code configuration
 vis:
     window_name: "Stereo-matches labeler"
