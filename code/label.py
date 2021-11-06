@@ -482,9 +482,9 @@ class Draw:
         # Draw X if not visible and return
         is_visible = kpt["is_visible"]
         if not is_visible:
-            if self.is_zoom_on:
-                self.zoom_mode_reset()
             if ind_id == self.ind_id: # Only if the ind_id is selected
+                if self.is_zoom_on:
+                    self.zoom_mode_reset()
                 self.selected_id_not_visible = True
                 if is_left:
                     self.im_draw_kpt_not_vis(self.im_l_kpt, color)
