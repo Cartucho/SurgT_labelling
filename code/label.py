@@ -504,8 +504,6 @@ class Draw:
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True)
         for kpt_r_key, kpt_r_val in kpts_r.items():
             self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False)
-        print(self.zoom_kpt_l)
-        print(self.zoom_kpt_r)
         # Draw zoom rectangle
         self.im_draw_zoom_rect(True)
         self.im_draw_zoom_rect(False)
@@ -615,6 +613,7 @@ class Draw:
         self.ind_im += 1
         if self.ind_im > (self.n_im - 1):
             self.ind_im = 0
+            self.zoom_mode_reset()
         self.Images.im_update(self.ind_im)
         self.update_im_with_keypoints(True)
 
@@ -623,12 +622,14 @@ class Draw:
         self.ind_im -= 1
         if self.ind_im < 0:
             self.ind_im = (self.n_im - 1)
+            self.zoom_mode_reset()
         self.Images.im_update(self.ind_im)
         self.update_im_with_keypoints(True)
 
 
     def id_next(self):
         self.ind_id += 1
+        self.zoom_mode_reset()
         self.update_im_with_keypoints(False)
 
 
@@ -636,6 +637,7 @@ class Draw:
         self.ind_id -=1
         if self.ind_id < 0:
             self.ind_id = 0
+        self.zoom_mode_reset()
         self.update_im_with_keypoints(False)
 
 
@@ -699,10 +701,20 @@ class Draw:
 
 
     def zoom_toggle(self):
-        self.is_zoom_on = not self.is_zoom_on
-        print("zoommmm {}".format(self.is_zoom_on))
-        print(self.zoom_kpt_l)
-        print(self.zoom_kpt_r)
+        if not self.is_zoom_on:
+            if self.zoom_mode_check_start():
+                self.is_zoom_on = True
+        else:
+            self.is_zoom_on = False
+
+
+    def zoom_mode_check_start(self):
+        if self.selected_id_not_visible:
+            return False
+        if self.zoom_kpt_l is None or \
+           self.zoom_kpt_r is None:
+            return False
+        return True
 
 
     def zoom_mode_reset(self):
