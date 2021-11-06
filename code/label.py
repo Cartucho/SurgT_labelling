@@ -429,7 +429,7 @@ class Draw:
         cv.line(im, (self.im_w, 0), (0, self.im_h), color, s_t)
 
 
-    def get_zoom_rect(self, kpt):
+    def zoom_mode_get_rect(self, kpt):
         kpt_u = kpt["u"]
         kpt_v = kpt["v"]
         w_half = self.zoom_r_w_pxl_half
@@ -439,7 +439,7 @@ class Draw:
         return left_top, right_bot
 
 
-    def im_draw_zoom_rect(self, is_left):
+    def im_draw_zoom_mode_rect(self, is_left):
         color = np.array(self.zoom_color, dtype=np.uint8).tolist()
         im = None
         kpt = None
@@ -456,11 +456,11 @@ class Draw:
               or no labeled kpt was detected since the last `zoom_mode_reset()`
             """
             return
-        left_top, right_bot = self.get_zoom_rect(kpt)
+        left_top, right_bot = self.zoom_mode_get_rect(kpt)
         cv.rectangle(im, left_top, right_bot, color, self.zoom_thick_pxl)
 
 
-    def zoom_copy_kpt(self, is_left, kpt):
+    def zoom_mode_copy_kpt(self, is_left, kpt):
         if not kpt["is_visible"]:
             kpt = None
         if is_left:
@@ -475,7 +475,7 @@ class Draw:
         if ind_id == self.ind_id:
             self.n_kpt_selected += 1
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
-            self.zoom_copy_kpt(is_left, kpt)
+            self.zoom_mode_copy_kpt(is_left, kpt)
         # Draw X if not visible and return
         is_visible = kpt["is_visible"]
         if not is_visible:
@@ -512,8 +512,8 @@ class Draw:
         for kpt_r_key, kpt_r_val in kpts_r.items():
             self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False)
         # Draw zoom rectangle
-        self.im_draw_zoom_rect(True)
-        self.im_draw_zoom_rect(False)
+        self.im_draw_zoom_mode_rect(True)
+        self.im_draw_zoom_mode_rect(False)
 
 
     def update_mouse_position(self, u, v):
@@ -712,7 +712,7 @@ class Draw:
             self.range_end = self.ind_im
 
 
-    def zoom_toggle(self):
+    def zoom_mode_toggle(self):
         if not self.is_zoom_on:
             if self.zoom_mode_check_start():
                 self.is_zoom_on = True
@@ -736,7 +736,7 @@ class Draw:
 
 
     def zoom_mode_crop_im(self, im, kpt):
-        left_top, right_bot = self.get_zoom_rect(kpt)
+        left_top, right_bot = self.zoom_mode_get_rect(kpt)
         v_min = left_top[1]  # get top
         v_max = right_bot[1] # get bot
         u_min = left_top[0]  # get left
@@ -813,7 +813,7 @@ class Interface:
         elif key_pressed == ord(self.key_range):
             self.Draw.range_toggle()
         elif key_pressed == ord(self.key_zoom):
-            self.Draw.zoom_toggle()
+            self.Draw.zoom_mode_toggle()
 
 
     def main_loop(self):
