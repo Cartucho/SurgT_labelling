@@ -519,7 +519,34 @@ class Draw:
         self.im_draw_zoom_mode_rect(False)
 
 
+    def zoom_mode_get_full_image_coords(self, u, v):
+        rect_h = 2 * self.zoom_r_h_pxl_half
+        if v >= rect_h:
+            # Mouse over status bar
+            diff = v - rect_h
+            v = (self.im_h + diff)
+            """
+             Note: no need to change u, since the mouse
+              position won't be updated when outside the images.
+            """
+            return u, v
+        rect_w = 2 * self.zoom_r_w_pxl_half
+        if u < rect_w:
+            # mouse on left crop
+            left_top, _ = self.zoom_mode_get_rect(self.zoom_kpt_l)
+        else:
+            # mouse on right crop
+            u -= rect_w
+            left_top, _ = self.zoom_mode_get_rect(self.zoom_kpt_r)
+            u += self.im_w
+        u += left_top[0]
+        v += left_top[1]
+        return u, v
+
+
     def update_mouse_position(self, u, v):
+        if self.is_zoom_on:
+            u, v = self.zoom_mode_get_full_image_coords(u, v)
         # Check if mouse is on left or right image
         self.is_mouse_on_im_l = False
         self.is_mouse_on_im_r = False
