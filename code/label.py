@@ -37,6 +37,7 @@ class Keypoints:
             self.kpts_r[ind_id] = self.new_r
         self.check_for_new_kpt_pair()
 
+
     def new_intrp_pair(self, ind_id, u_l, v_l, u_r, v_r):
         k_l = {"u": u_l,
                "v": v_l,
