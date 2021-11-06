@@ -93,6 +93,9 @@ class Keypoints:
         self.kpts_r.pop(ind_id, None)
         # Save kpts to .yaml
         self.save_kpt_pairs_to_files()
+        # Reset new_kpt
+        self.new_l = None
+        self.new_r = None
 
 
     def get_kpts(self):
