@@ -429,6 +429,14 @@ class Draw:
         cv.line(im, (self.im_w, 0), (0, self.im_h), color, s_t)
 
 
+    def get_zoom_rect(self, kpt):
+        kpt_u = kpt["u"]
+        kpt_v = kpt["v"]
+        left_top = (kpt_u - self.zoom_rect_w_pxl, kpt_v - self.zoom_rect_h_pxl)
+        right_bot = (kpt_u + self.zoom_rect_w_pxl, kpt_v + self.zoom_rect_h_pxl)
+        return left_top, right_bot
+
+
     def im_draw_zoom_rect(self, is_left):
         color = np.array(self.zoom_color, dtype=np.uint8).tolist()
         im = None
@@ -446,10 +454,7 @@ class Draw:
               or no labeled kpt was detected since the last `zoom_mode_reset()`
             """
             return
-        kpt_u = kpt["u"]
-        kpt_v = kpt["v"]
-        left_top = (kpt_u - self.zoom_rect_w_pxl, kpt_v - self.zoom_rect_h_pxl)
-        right_bot = (kpt_u + self.zoom_rect_w_pxl, kpt_v + self.zoom_rect_h_pxl)
+        left_top, right_bot = self.get_zoom_rect(kpt)
         cv.rectangle(im, left_top, right_bot, color, self.zoom_thick_pxl)
 
 
