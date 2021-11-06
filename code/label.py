@@ -432,14 +432,32 @@ class Draw:
         cv.line(im, (self.im_w, 0), (0, self.im_h), color, s_t)
 
 
+    def limit_u(self, u):
+        if u < 0:
+            return 0
+        elif u > (self.im_w - 1):
+            return (self.im_w - 1)
+        return u
+
+
+    def limit_v(self, v):
+        if v < 0:
+            return 0
+        elif v > (self.im_h - 1):
+            return (self.im_h - 1)
+        return v
+
+
     def zoom_mode_get_rect(self, kpt):
         kpt_u = kpt["u"]
         kpt_v = kpt["v"]
         w_half = self.zoom_r_w_pxl_half
         h_half = self.zoom_r_h_pxl_half
-        left_top = (kpt_u - w_half, kpt_v - h_half)
-        right_bot = (kpt_u + w_half, kpt_v + h_half)
-        return left_top, right_bot
+        left = self.limit_u((kpt_u - w_half))
+        top  = self.limit_v((kpt_v - h_half))
+        right = self.limit_u((kpt_u + w_half))
+        bot  = self.limit_v((kpt_v + h_half))
+        return left, top, right, bot
 
 
     def im_draw_zoom_mode_rect(self, is_left):
@@ -459,8 +477,9 @@ class Draw:
               or no labeled kpt was detected since the last `zoom_mode_reset()`
             """
             return
-        left_top, right_bot = self.zoom_mode_get_rect(kpt)
-        cv.rectangle(im, left_top, right_bot, color, self.zoom_thick_pxl)
+        left, top, right, bot = self.zoom_mode_get_rect(kpt)
+        thick = self.zoom_thick_pxl
+        cv.rectangle(im, (left, top), (right, bot), color, thick)
 
 
     def zoom_mode_copy_kpt(self, is_left, kpt):
@@ -520,27 +539,20 @@ class Draw:
 
 
     def zoom_mode_get_full_image_coords(self, u, v):
-        rect_h = 2 * self.zoom_r_h_pxl_half
-        if v >= rect_h:
-            # Mouse over status bar
-            diff = v - rect_h
-            v = (self.im_h + diff)
-            """
-             Note: no need to change u, since the mouse
-              position won't be updated when outside the images.
-            """
-            return u, v
         rect_w = 2 * self.zoom_r_w_pxl_half
+        is_mouse_on_right_crop = False
         if u < rect_w:
-            # mouse on left crop
-            left_top, _ = self.zoom_mode_get_rect(self.zoom_kpt_l)
+            left, top, right, bot = self.zoom_mode_get_rect(self.zoom_kpt_l)
         else:
-            # mouse on right crop
+            is_mouse_on_right_crop = True
             u -= rect_w
-            left_top, _ = self.zoom_mode_get_rect(self.zoom_kpt_r)
+            left, top, right, bot = self.zoom_mode_get_rect(self.zoom_kpt_r)
+        if u > (right - left) or v > (bot - top):
+            return None, None
+        u += left
+        if is_mouse_on_right_crop:
             u += self.im_w
-        u += left_top[0]
-        v += left_top[1]
+        v += top
         return u, v
 
 
@@ -550,6 +562,8 @@ class Draw:
         # Check if mouse is on left or right image
         self.is_mouse_on_im_l = False
         self.is_mouse_on_im_r = False
+        if u is None or v is None:
+            return
         if v < self.im_h:
             if u < self.im_w:
                 self.is_mouse_on_im_l = True
@@ -766,12 +780,11 @@ class Draw:
 
 
     def zoom_mode_crop_im(self, im, kpt):
-        left_top, right_bot = self.zoom_mode_get_rect(kpt)
-        v_min = left_top[1]  # get top
-        v_max = right_bot[1] # get bot
-        u_min = left_top[0]  # get left
-        u_max = right_bot[0] # get right
-        crop_im = im[v_min:v_max, u_min:u_max]
+        left, top, right, bot = self.zoom_mode_get_rect(kpt)
+        rect_w = 2 * self.zoom_r_w_pxl_half
+        rect_h = 2 * self.zoom_r_h_pxl_half
+        crop_im = np.zeros((rect_h, rect_w, 3), dtype=np.uint8)
+        crop_im[:(bot - top),:(right - left)] = im[top:bot, left:right]
         return crop_im
 
 
