@@ -534,8 +534,11 @@ class Draw:
                 kpt_n_l = self.Keypoints.get_new_kpt_l()
                 if kpt_n_l is not None:
                     v = kpt_n_l["v"]
-        self.mouse_u = u
-        self.mouse_v = v
+        # Update position only if inside one of the images
+        if self.is_mouse_on_im_l or\
+           self.is_mouse_on_im_r:
+            self.mouse_u = u
+            self.mouse_v = v
 
 
     def mouse_move(self, u, v):
