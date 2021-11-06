@@ -360,8 +360,8 @@ class Draw:
         self.kpt_id_v_marg_pxl = c_kpt["id_v_marg_pxl"]
         c_zoom = c_vis["zoom"]
         self.zoom_color = c_zoom["color"]
-        self.zoom_rect_w_pxl = c_zoom["rect_w_pxl"]
-        self.zoom_rect_h_pxl = c_zoom["rect_h_pxl"]
+        self.zoom_r_w_pxl_half = int(c_zoom["rect_w_pxl"] / 2.)
+        self.zoom_r_h_pxl_half = int(c_zoom["rect_h_pxl"] / 2.)
         self.zoom_thick_pxl  = c_zoom["thick_pxl"]
 
 
@@ -432,8 +432,10 @@ class Draw:
     def get_zoom_rect(self, kpt):
         kpt_u = kpt["u"]
         kpt_v = kpt["v"]
-        left_top = (kpt_u - self.zoom_rect_w_pxl, kpt_v - self.zoom_rect_h_pxl)
-        right_bot = (kpt_u + self.zoom_rect_w_pxl, kpt_v + self.zoom_rect_h_pxl)
+        w_half = self.zoom_r_w_pxl_half
+        h_half = self.zoom_r_h_pxl_half
+        left_top = (kpt_u - w_half, kpt_v - h_half)
+        right_bot = (kpt_u + w_half, kpt_v + h_half)
         return left_top, right_bot
 
 
