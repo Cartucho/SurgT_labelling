@@ -515,25 +515,27 @@ class Draw:
 
 
     def update_mouse_position(self, u, v):
-        self.mouse_u = u
-        self.mouse_v = v
         # Check if mouse is on left or right image
         self.is_mouse_on_im_l = False
         self.is_mouse_on_im_r = False
         if v < self.im_h:
             if u < self.im_w:
                 self.is_mouse_on_im_l = True
-                if self.is_rectified:
-                    kpt_n_r = self.Keypoints.get_new_kpt_r()
-                    if kpt_n_r is not None:
-                        self.mouse_v = kpt_n_r["v"]
             else:
-                self.mouse_u -= self.im_w
                 self.is_mouse_on_im_r = True
-                if self.is_rectified:
-                    kpt_n_l = self.Keypoints.get_new_kpt_l()
-                    if kpt_n_l is not None:
-                        self.mouse_v = kpt_n_l["v"]
+                u -= self.im_w
+        # Force `v` if a point was already labeled and `is_rectified=True`
+        if self.is_rectified:
+            if self.is_mouse_on_im_l:
+                kpt_n_r = self.Keypoints.get_new_kpt_r()
+                if kpt_n_r is not None:
+                    v = kpt_n_r["v"]
+            elif self.is_mouse_on_im_r:
+                kpt_n_l = self.Keypoints.get_new_kpt_l()
+                if kpt_n_l is not None:
+                    v = kpt_n_l["v"]
+        self.mouse_u = u
+        self.mouse_v = v
 
 
     def mouse_move(self, u, v):
