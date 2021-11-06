@@ -17,6 +17,7 @@ key: # Interface keys
     interp: "i"  # Interpolation
     visible: "v" # Is kpt visible? Toggle key
     range: "r"   # Range
+    zoom: "z"    # Toggle zoom-mode
 # Code configuration
 vis:
     window_name: "Stereo-matches labeler"
@@ -37,5 +38,6 @@ vis:
         id_v_marg_pxl: 10 # Vertical margin [pixels]
     zoom: # for the zoom-mode
         color: [255, 0, 0] # [B, G, R]
-        rect_w_pxl: 300 # Rectangle width in pixels
-        rect_h_pxl: 150 # Rectangle height in pixels
+        rect_w_pxl: 300 # Rectangle width in [pixels]
+        rect_h_pxl: 200 # Rectangle height in [pixels]
+        thick_pxl: 3    # thickness in [pixels] of the rectangle

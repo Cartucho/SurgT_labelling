@@ -37,6 +37,7 @@ class Keypoints:
             self.kpts_r[ind_id] = self.new_r
         self.check_for_new_kpt_pair()
 
+
     def new_intrp_pair(self, ind_id, u_l, v_l, u_r, v_r):
         k_l = {"u": u_l,
                "v": v_l,
@@ -92,6 +93,9 @@ class Keypoints:
         self.kpts_r.pop(ind_id, None)
         # Save kpts to .yaml
         self.save_kpt_pairs_to_files()
+        # Reset new_kpt
+        self.new_l = None
+        self.new_r = None
 
 
     def get_kpts(self):
@@ -311,6 +315,7 @@ class Draw:
     def __init__(self, config):
         self.ind_im = 0
         self.ind_id = 0
+        self.is_zoom_on = False
         self.load_data_config(config)
         self.load_vis_config(config)
         self.mouse_u = 0
@@ -356,12 +361,19 @@ class Draw:
         self.kpt_color_not_s = c_kpt["color_not_s"]
         self.kpt_s_thick_pxl = c_kpt["s_thick_pxl"]
         self.kpt_id_v_marg_pxl = c_kpt["id_v_marg_pxl"]
+        c_zoom = c_vis["zoom"]
+        self.zoom_color = c_zoom["color"]
+        self.zoom_r_w_pxl_half = int(c_zoom["rect_w_pxl"] / 2.)
+        self.zoom_r_h_pxl_half = int(c_zoom["rect_h_pxl"] / 2.)
+        self.zoom_thick_pxl  = c_zoom["thick_pxl"]
 
 
     def initialize_im(self):
         self.n_im = self.Images.get_n_im()
         self.Images.im_update(self.ind_im)
         self.im_h, self.im_w = self.Images.get_resolution()
+        self.zoom_kpt_l  = None
+        self.zoom_kpt_r  = None
         self.update_im_with_keypoints(True)
 
 
@@ -420,25 +432,70 @@ class Draw:
         cv.line(im, (self.im_w, 0), (0, self.im_h), color, s_t)
 
 
+    def zoom_mode_get_rect(self, kpt):
+        kpt_u = kpt["u"]
+        kpt_v = kpt["v"]
+        w_half = self.zoom_r_w_pxl_half
+        h_half = self.zoom_r_h_pxl_half
+        left_top = (kpt_u - w_half, kpt_v - h_half)
+        right_bot = (kpt_u + w_half, kpt_v + h_half)
+        return left_top, right_bot
+
+
+    def im_draw_zoom_mode_rect(self, is_left):
+        color = np.array(self.zoom_color, dtype=np.uint8).tolist()
+        im = None
+        kpt = None
+        if is_left:
+            kpt = self.zoom_kpt_l
+            im = self.im_l_kpt
+        else:
+            kpt = self.zoom_kpt_r
+            im = self.im_r_kpt
+        if kpt is None:
+            """
+             Either the kpt is not visible,
+              or the user went from first to the last image,
+              or no labeled kpt was detected since the last `zoom_mode_reset()`
+            """
+            return
+        left_top, right_bot = self.zoom_mode_get_rect(kpt)
+        cv.rectangle(im, left_top, right_bot, color, self.zoom_thick_pxl)
+
+
+    def zoom_mode_copy_kpt(self, is_left, kpt):
+        if not kpt["is_visible"]:
+            kpt = None
+        if is_left:
+            self.zoom_kpt_l = kpt
+        else:
+            self.zoom_kpt_r = kpt
+
+
     def im_draw_kpt_pair(self, ind_id, kpt, is_left):
         # Set color
         color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
         if ind_id == self.ind_id:
             self.n_kpt_selected += 1
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
+            self.zoom_mode_copy_kpt(is_left, kpt)
         # Draw X if not visible and return
-        if not kpt["is_visible"]:
+        is_visible = kpt["is_visible"]
+        if not is_visible:
+            if self.is_zoom_on:
+                self.zoom_mode_reset()
             if ind_id == self.ind_id: # Only if the ind_id is selected
+                self.selected_id_not_visible = True
                 if is_left:
                     self.im_draw_kpt_not_vis(self.im_l_kpt, color)
                 else:
                     self.im_draw_kpt_not_vis(self.im_r_kpt, color)
             return
         # Draw keypoint (cross + id)
+        txt = "{}".format(ind_id)
         kpt_u = kpt["u"]
         kpt_v = kpt["v"]
         is_interp = kpt["is_interp"]
-        txt = "{}".format(ind_id)
         if is_interp:
             txt += "'" # If `is_interp` add a symbol
         if is_left:
@@ -452,32 +509,68 @@ class Draw:
     def im_draw_all_kpts(self):
         kpts_l, kpts_r = self.Keypoints.get_kpts()
         self.n_kpt_selected = 0
+        self.selected_id_not_visible = False
         for kpt_l_key, kpt_l_val in kpts_l.items():
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True)
         for kpt_r_key, kpt_r_val in kpts_r.items():
             self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False)
+        # Draw zoom rectangle
+        self.im_draw_zoom_mode_rect(True)
+        self.im_draw_zoom_mode_rect(False)
+
+
+    def zoom_mode_get_full_image_coords(self, u, v):
+        rect_h = 2 * self.zoom_r_h_pxl_half
+        if v >= rect_h:
+            # Mouse over status bar
+            diff = v - rect_h
+            v = (self.im_h + diff)
+            """
+             Note: no need to change u, since the mouse
+              position won't be updated when outside the images.
+            """
+            return u, v
+        rect_w = 2 * self.zoom_r_w_pxl_half
+        if u < rect_w:
+            # mouse on left crop
+            left_top, _ = self.zoom_mode_get_rect(self.zoom_kpt_l)
+        else:
+            # mouse on right crop
+            u -= rect_w
+            left_top, _ = self.zoom_mode_get_rect(self.zoom_kpt_r)
+            u += self.im_w
+        u += left_top[0]
+        v += left_top[1]
+        return u, v
 
 
     def update_mouse_position(self, u, v):
-        self.mouse_u = u
-        self.mouse_v = v
+        if self.is_zoom_on:
+            u, v = self.zoom_mode_get_full_image_coords(u, v)
         # Check if mouse is on left or right image
         self.is_mouse_on_im_l = False
         self.is_mouse_on_im_r = False
         if v < self.im_h:
             if u < self.im_w:
                 self.is_mouse_on_im_l = True
-                if self.is_rectified:
-                    kpt_n_r = self.Keypoints.get_new_kpt_r()
-                    if kpt_n_r is not None:
-                        self.mouse_v = kpt_n_r["v"]
             else:
-                self.mouse_u -= self.im_w
                 self.is_mouse_on_im_r = True
-                if self.is_rectified:
-                    kpt_n_l = self.Keypoints.get_new_kpt_l()
-                    if kpt_n_l is not None:
-                        self.mouse_v = kpt_n_l["v"]
+                u -= self.im_w
+        # Force `v` if a point was already labeled and `is_rectified=True`
+        if self.is_rectified:
+            if self.is_mouse_on_im_l:
+                kpt_n_r = self.Keypoints.get_new_kpt_r()
+                if kpt_n_r is not None:
+                    v = kpt_n_r["v"]
+            elif self.is_mouse_on_im_r:
+                kpt_n_l = self.Keypoints.get_new_kpt_l()
+                if kpt_n_l is not None:
+                    v = kpt_n_l["v"]
+        # Update position only if inside one of the images
+        if self.is_mouse_on_im_l or\
+           self.is_mouse_on_im_r:
+            self.mouse_u = u
+            self.mouse_v = v
 
 
     def mouse_move(self, u, v):
@@ -486,6 +579,8 @@ class Draw:
 
 
     def mouse_lclick(self):
+        if self.selected_id_not_visible:
+            return
         if self.is_mouse_on_im_l or self.is_mouse_on_im_r:
             if self.n_kpt_selected < 2: # If not already labeled
                 # Save new keypoint
@@ -560,6 +655,7 @@ class Draw:
         self.ind_im += 1
         if self.ind_im > (self.n_im - 1):
             self.ind_im = 0
+            self.zoom_mode_reset()
         self.Images.im_update(self.ind_im)
         self.update_im_with_keypoints(True)
 
@@ -568,12 +664,14 @@ class Draw:
         self.ind_im -= 1
         if self.ind_im < 0:
             self.ind_im = (self.n_im - 1)
+            self.zoom_mode_reset()
         self.Images.im_update(self.ind_im)
         self.update_im_with_keypoints(True)
 
 
     def id_next(self):
         self.ind_id += 1
+        self.zoom_mode_reset()
         self.update_im_with_keypoints(False)
 
 
@@ -581,10 +679,13 @@ class Draw:
         self.ind_id -=1
         if self.ind_id < 0:
             self.ind_id = 0
+        self.zoom_mode_reset()
         self.update_im_with_keypoints(False)
 
 
     def eliminate_selected_kpts(self):
+        if self.selected_id_not_visible:
+            return
         i_min, i_max = self.get_range_min_and_max()
         if i_min is not None and i_max is not None:
             for i in range(i_min, i_max + 1):
@@ -599,6 +700,8 @@ class Draw:
 
 
     def interp_kpt_positions(self):
+        if self.selected_id_not_visible:
+            return
         self.Interpolation.start(self.ind_id, self.ind_im, self.is_rectified)
         """ Show the newly interpolated keypoints """
         self.update_im_with_keypoints(True)
@@ -639,9 +742,47 @@ class Draw:
             self.range_end = self.ind_im
 
 
+    def zoom_mode_toggle(self):
+        if not self.is_zoom_on:
+            if self.zoom_mode_check_start():
+                self.is_zoom_on = True
+        else:
+            self.is_zoom_on = False
+
+
+    def zoom_mode_check_start(self):
+        if self.selected_id_not_visible:
+            return False
+        if self.zoom_kpt_l is None or \
+           self.zoom_kpt_r is None:
+            return False
+        return True
+
+
+    def zoom_mode_reset(self):
+        self.is_zoom_on = False
+        self.zoom_kpt_l = None
+        self.zoom_kpt_r = None
+
+
+    def zoom_mode_crop_im(self, im, kpt):
+        left_top, right_bot = self.zoom_mode_get_rect(kpt)
+        v_min = left_top[1]  # get top
+        v_max = right_bot[1] # get bot
+        u_min = left_top[0]  # get left
+        u_max = right_bot[0] # get right
+        crop_im = im[v_min:v_max, u_min:u_max]
+        return crop_im
+
+
     def get_draw(self):
         # Stack images together
-        draw = np.concatenate((self.im_l_all, self.im_r_all), axis=1)
+        if self.is_zoom_on:
+            im_l_crop = self.zoom_mode_crop_im(self.im_l_all, self.zoom_kpt_l)
+            im_r_crop = self.zoom_mode_crop_im(self.im_r_all, self.zoom_kpt_r)
+            draw = np.concatenate((im_l_crop, im_r_crop), axis=1)
+        else:
+            draw = np.concatenate((self.im_l_all, self.im_r_all), axis=1)
         # Add status bar in the bottom
         draw = self.add_status_bar(draw)
         return draw
@@ -667,6 +808,7 @@ class Interface:
         self.key_interp  = c_keys["interp"]
         self.key_visibl  = c_keys["visible"]
         self.key_range   = c_keys["range"]
+        self.key_zoom    = c_keys["zoom"]
 
 
     def mouse_listener(self, event, x, y, flags, param):
@@ -700,6 +842,8 @@ class Interface:
             self.Draw.toggle_kpt_visibility()
         elif key_pressed == ord(self.key_range):
             self.Draw.range_toggle()
+        elif key_pressed == ord(self.key_zoom):
+            self.Draw.zoom_mode_toggle()
 
 
     def main_loop(self):
