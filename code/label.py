@@ -728,9 +728,24 @@ class Draw:
         self.zoom_kpt_r = None
 
 
+    def zoom_mode_crop_im(self, im, kpt):
+        left_top, right_bot = self.get_zoom_rect(kpt)
+        v_min = left_top[1]  # get top
+        v_max = right_bot[1] # get bot
+        u_min = left_top[0]  # get left
+        u_max = right_bot[0] # get right
+        crop_im = im[v_min:v_max, u_min:u_max]
+        return crop_im
+
+
     def get_draw(self):
         # Stack images together
-        draw = np.concatenate((self.im_l_all, self.im_r_all), axis=1)
+        if self.is_zoom_on:
+            im_l_crop = self.zoom_mode_crop_im(self.im_l_all, self.zoom_kpt_l)
+            im_r_crop = self.zoom_mode_crop_im(self.im_r_all, self.zoom_kpt_r)
+            draw = np.concatenate((im_l_crop, im_r_crop), axis=1)
+        else:
+            draw = np.concatenate((self.im_l_all, self.im_r_all), axis=1)
         # Add status bar in the bottom
         draw = self.add_status_bar(draw)
         return draw
