@@ -25,6 +25,11 @@ In summary, you want to (1) choose keypoint to be labeled, (2) mark visibility, 
 
 Also, I suggest using a mouse since it will make the labeling process easier. You can even zoom in and out of the pictures using the middle scroll of the mouse.
 
+
+## Zoom mode
+
+The zoom mode allows you to label the kpt faster without having to zoom in and out all the time. When you labeling keypoints or browsing through the existing ones you will notice that there is a blue rectangle being created, if you press `z` (standing for `z`oom) you will zoom in or out of that blue rectangle.
+
 ## How to run it?
 
 I recommend you to create a Python virtual environment:
