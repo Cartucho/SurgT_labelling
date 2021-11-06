@@ -312,6 +312,7 @@ class Draw:
     def __init__(self, config):
         self.ind_im = 0
         self.ind_id = 0
+        self.is_zoom_on = False
         self.load_data_config(config)
         self.load_vis_config(config)
         self.mouse_u = 0
@@ -321,9 +322,6 @@ class Draw:
         self.initialize_im()
         self.range_start = -1
         self.range_end   = -1
-        self.is_zoom_on  = False
-        self.zoom_kpt_l  = None
-        self.zoom_kpt_r  = None
 
 
     def load_data_config(self, config):
@@ -371,6 +369,8 @@ class Draw:
         self.n_im = self.Images.get_n_im()
         self.Images.im_update(self.ind_im)
         self.im_h, self.im_w = self.Images.get_resolution()
+        self.zoom_kpt_l  = None
+        self.zoom_kpt_r  = None
         self.update_im_with_keypoints(True)
 
 
