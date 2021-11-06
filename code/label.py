@@ -475,6 +475,7 @@ class Draw:
             if self.is_zoom_on:
                 self.zoom_mode_reset()
             if ind_id == self.ind_id: # Only if the ind_id is selected
+                self.selected_id_not_visible = True
                 if is_left:
                     self.im_draw_kpt_not_vis(self.im_l_kpt, color)
                 else:
@@ -498,6 +499,7 @@ class Draw:
     def im_draw_all_kpts(self):
         kpts_l, kpts_r = self.Keypoints.get_kpts()
         self.n_kpt_selected = 0
+        self.selected_id_not_visible = False
         for kpt_l_key, kpt_l_val in kpts_l.items():
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True)
         for kpt_r_key, kpt_r_val in kpts_r.items():
@@ -537,6 +539,8 @@ class Draw:
 
 
     def mouse_lclick(self):
+        if self.selected_id_not_visible:
+            return
         if self.is_mouse_on_im_l or self.is_mouse_on_im_r:
             if self.n_kpt_selected < 2: # If not already labeled
                 # Save new keypoint
@@ -636,6 +640,8 @@ class Draw:
 
 
     def eliminate_selected_kpts(self):
+        if self.selected_id_not_visible:
+            return
         i_min, i_max = self.get_range_min_and_max()
         if i_min is not None and i_max is not None:
             for i in range(i_min, i_max + 1):
@@ -650,6 +656,8 @@ class Draw:
 
 
     def interp_kpt_positions(self):
+        if self.selected_id_not_visible:
+            return
         self.Interpolation.start(self.ind_id, self.ind_im, self.is_rectified)
         """ Show the newly interpolated keypoints """
         self.update_im_with_keypoints(True)
