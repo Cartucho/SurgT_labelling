@@ -440,6 +440,11 @@ class Draw:
             kpt = self.zoom_kpt_r
             im = self.im_r_kpt
         if kpt is None:
+            """
+             Either the kpt is not visible,
+              or the user went from first to the last image,
+              or no labeled kpt was detected since the last `zoom_mode_reset()`
+            """
             return
         kpt_u = kpt["u"]
         kpt_v = kpt["v"]
@@ -448,23 +453,27 @@ class Draw:
         cv.rectangle(im, left_top, right_bot, color, self.zoom_thick_pxl)
 
 
+    def zoom_copy_kpt(self, is_left, kpt):
+        if not kpt["is_visible"]:
+            kpt = None
+        if is_left:
+            self.zoom_kpt_l = kpt
+        else:
+            self.zoom_kpt_r = kpt
+
+
     def im_draw_kpt_pair(self, ind_id, kpt, is_left):
-        kpt_u = kpt["u"]
-        kpt_v = kpt["v"]
-        is_interp = kpt["is_interp"]
-        is_visible = kpt["is_visible"]
         # Set color
         color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
         if ind_id == self.ind_id:
             self.n_kpt_selected += 1
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
-            if is_left:
-                print("here!")
-                self.zoom_kpt_l = kpt.copy()
-            else:
-                self.zoom_kpt_r = kpt.copy()
+            self.zoom_copy_kpt(is_left, kpt)
         # Draw X if not visible and return
+        is_visible = kpt["is_visible"]
         if not is_visible:
+            if self.is_zoom_on:
+                self.zoom_mode_reset()
             if ind_id == self.ind_id: # Only if the ind_id is selected
                 if is_left:
                     self.im_draw_kpt_not_vis(self.im_l_kpt, color)
@@ -473,6 +482,9 @@ class Draw:
             return
         # Draw keypoint (cross + id)
         txt = "{}".format(ind_id)
+        kpt_u = kpt["u"]
+        kpt_v = kpt["v"]
+        is_interp = kpt["is_interp"]
         if is_interp:
             txt += "'" # If `is_interp` add a symbol
         if is_left:
@@ -683,6 +695,12 @@ class Draw:
         print("zoommmm {}".format(self.is_zoom_on))
         print(self.zoom_kpt_l)
         print(self.zoom_kpt_r)
+
+
+    def zoom_mode_reset(self):
+        self.is_zoom_on = False
+        self.zoom_kpt_l = None
+        self.zoom_kpt_r = None
 
 
     def get_draw(self):
