@@ -38,6 +38,6 @@ vis:
         id_v_marg_pxl: 10 # Vertical margin [pixels]
     zoom: # for the zoom-mode
         color: [255, 0, 0] # [B, G, R]
-        rect_w_pxl: 300 # Rectangle width in [pixels]
-        rect_h_pxl: 200 # Rectangle height in [pixels]
+        rect_w_pxl: 200 # Rectangle width in [pixels]
+        rect_h_pxl: 100 # Rectangle height in [pixels]
         thick_pxl: 3    # thickness in [pixels] of the rectangle
