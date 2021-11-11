@@ -200,6 +200,71 @@ class Images:
             self.im_h, self.im_w = self.im_l.shape[:2]
 
 
+class RigidStruct:
+    def __init__(self, Images, Keypoints, use_disp, disp_map_l, rect_param):
+        self.Images = Images
+        self.Keypoints = Keypoints
+        self.use_disp = use_disp
+        if use_disp:
+            self.disp = cv.imread(disp_map_l, -1)
+        self.Q = None
+        self.P1 = None
+        self.P2 = None
+        if os.path.isfile(rect_param):
+            # Load data from .yaml file
+            data = utils.load_yaml_data(rect_param)
+            self.Q = data["Q"]
+            self.P1 = data["P1"]
+            self.P2 = data["P2"]
+
+
+    def project_3d_to_2d_coords(self, pt3d):
+        if self.P1 is None or \
+           self.P2 is None:
+            return None
+        pt_2d_l = self.P1 @ pt3d
+        pt_2d_l /= pt_2d_l[2, 0]
+        pt_2d_r = self.P2 @ pt3d
+        pt_2d_r /= pt_2d_r[2, 0]
+        return pt_2d_l[:2, 0], pt_2d_r[:2, 0]
+
+
+    def get_initial_3d_pts(self):
+        if self.Q is None:
+            return None
+        im_name = self.Images.get_im_pair_name(0) # ind_im = 0
+        self.Keypoints.update_ktp_pairs(im_name)
+        kpts_l, kpts_r = self.Keypoints.get_kpts()
+        pts_3d = {}
+        for kpt_id, kpt_l in kpts_l.items():
+            u_l = kpt_l["u"]
+            v_l = kpt_l["v"]
+            if self.use_disp:
+                disp = self.disp[v_l, u_l]
+            else:
+                kpt_r = kpts_r[kpt_id]
+                u_r = kpt_r["u"]
+                disp = u_l - u_r
+            if disp > 0:
+                pt = np.array([[u_l],
+                               [v_l],
+                               [disp],
+                               [1.0]])
+                pt_3d = self.Q @ pt
+                pt_3d /= pt_3d[3, 0]
+                pts_3d[kpt_id] = pt_3d[:3, 0]
+        return pts_3d
+
+
+    def predict_kpt_in_all_images(self, ind_id):
+        pts_3d = self.get_initial_3d_pts()
+        print(pts_3d)
+        # Iterate through images
+        # Get current 2D coordinates (for each image)
+        # Estimate camera pose
+        # Save camera poses
+
+
 class Interpolation:
     def __init__(self, Images, Keypoints):
         self.Images = Images
@@ -342,6 +407,18 @@ class Draw:
         self.Keypoints = Keypoints(dir_out_l, dir_out_r)
         # Interpolation
         self.Interpolation = Interpolation(self.Images, self.Keypoints)
+        # Rigid structure data
+        self.RS = None
+        is_rigid = c_data["is_rigid"]
+        if is_rigid:
+            use_disp = c_data["use_disp"]
+            disp_map_l = os.path.join(self.dir_data, c_data["disp_map_l"])
+            rect_param = os.path.join(self.dir_data, c_data["rect_param"])
+            self.RS = RigidStruct(self.Images,
+                                  self.Keypoints,
+                                  use_disp,
+                                  disp_map_l,
+                                  rect_param)
 
 
     def load_vis_config(self, config):
@@ -786,6 +863,10 @@ class Draw:
         crop_im = np.zeros((rect_h, rect_w, 3), dtype=np.uint8)
         crop_im[:(bot - top),:(right - left)] = im[top:bot, left:right]
         return crop_im
+
+
+    def predict_keypoint(self):
+        self.RS.predict_kpt_in_all_images(self.ind_id)
 
 
     def get_draw(self):
