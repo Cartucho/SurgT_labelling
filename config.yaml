@@ -7,6 +7,9 @@ data:
     im_format: ".png"
     subdir_output_l: "left_kpts"
     subdir_output_r: "right_kpts"
+    is_rigid: True # Is the tissue a rigid structure?
+    disp_map_l: "left_disp_rect.png" # Accurate disparity map
+    rect_param: "rectify.yaml" # Rectification parameters
 key: # Interface keys
     quit: "q"
     im_prev: "a" # Go to previous image pair
@@ -18,6 +21,7 @@ key: # Interface keys
     visible: "v" # Is kpt visible? Toggle key
     range: "r"   # Range
     zoom: "z"    # Toggle zoom-mode
+    pose: "p"    # Calculate camera poses
 # Code configuration
 vis:
     window_name: "Stereo-matches labeler"
