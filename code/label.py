@@ -822,6 +822,7 @@ class Interface:
         self.key_visibl  = c_keys["visible"]
         self.key_range   = c_keys["range"]
         self.key_zoom    = c_keys["zoom"]
+        self.key_predict = c_keys["predict"]
 
 
     def mouse_listener(self, event, x, y, flags, param):
@@ -857,6 +858,8 @@ class Interface:
             self.Draw.range_toggle()
         elif key_pressed == ord(self.key_zoom):
             self.Draw.zoom_mode_toggle()
+        elif key_pressed == ord(self.key_predict):
+            self.Draw.predict_keypoint()
 
 
     def main_loop(self):

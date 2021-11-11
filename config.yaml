@@ -8,7 +8,8 @@ data:
     subdir_output_l: "left_kpts"
     subdir_output_r: "right_kpts"
     subdir_output_cam: "cam_pose"
-    is_rigid: True # Is the tissue a rigid structure?
+    is_rigid: True # Is the object rigid?
+    use_disp: False # Set to False if unavailable
     disp_map_l: "left_disp_rect.png" # Accurate disparity map
     rect_param: "rectify.yaml" # Rectification parameters
 key: # Interface keys
