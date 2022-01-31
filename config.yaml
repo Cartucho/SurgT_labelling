@@ -25,7 +25,8 @@ key:
     id_next: "w" # Go to next id
     elimin: "e"  # Eliminate selected keypoints
     interp: "i"  # Interpolation
-    visible: "v" # Is kpt visible? Toggle key
+    visible: "v" # Is kpt visible in both stereo images? - TOGGLE key
+    diffclt: "m" # Is kpt difficult to label? - TOGGLE key
     range: "r"   # Range
     zoom: "z"    # Toggle zoom-mode
     gtruth: "g"  # Get ground-truth bounding-boxes

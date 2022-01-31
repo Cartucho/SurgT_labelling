@@ -33,7 +33,7 @@ class Keypoints:
         kpt_n = {"u": u,
                  "v": v,
                  "is_interp": False,
-                 "is_visible": True,
+                 "is_visible_in_both_stereo": True,
                  "is_difficult": False}
         if is_l_kpt:
             self.new_l = kpt_n
@@ -48,12 +48,12 @@ class Keypoints:
         k_l = {"u": u_l,
                "v": v_l,
                "is_interp": True,
-               "is_visible": True,
+               "is_visible_in_both_stereo": True,
                "is_difficult": False}
         k_r = {"u": u_r,
                "v": v_r,
                "is_interp": True,
-               "is_visible": True,
+               "is_visible_in_both_stereo": True,
                "is_difficult": False}
         self.add_kpt_pair(ind_id, k_l, k_r)
 
@@ -153,25 +153,27 @@ class Keypoints:
          Cases:
          1. No kpt labelled
 
-                If kpt is None, then set `is_visible`=False
+                If kpt is None, then set `is_visible_in_both_stereo`=False
 
          2. Kpt labelled
 
-                If `is_visible`=True, then set `is_visible`=False
+                If `is_visible_in_both_stereo`=True,
+                 then set `is_visible_in_both_stereo`=False
 
          3. Picture already marked as not visible
 
-                If `is_visible`=False, then delete the kpts to
-                relabel them later, which will set `is_visible`=True
+                If `is_visible_in_both_stereo`=False, then delete the kpts to
+                relabel them later, which will set `is_visible_in_both_stereo`=True
         """
         kpt_l, kpt_r = self.get_kpts_given_ind_id(ind_id)
         # Case 3.
         if kpt_l is not None and kpt_r is not None:
-            if not kpt_l["is_visible"] and not kpt_r["is_visible"]:
+            if not kpt_l["is_visible_in_both_stereo"] \
+               and not kpt_r["is_visible_in_both_stereo"]:
                 self.eliminate_kpts(ind_id)
                 return
         # Case 1. and 2.
-        kpt_not_vis = {"is_visible": False}
+        kpt_not_vis = {"is_visible_in_both_stereo": False}
         self.kpts_l[ind_id] = kpt_not_vis
         self.kpts_r[ind_id] = kpt_not_vis
         self.save_kpt_pairs_to_files()
@@ -260,7 +262,8 @@ class Interpolation:
             if k_l is None or k_r is None:
                 data_kpt_intrp[im_name] = None
                 continue
-            if not k_l["is_visible"] or not k_r["is_visible"]:
+            if not k_l["is_visible_in_both_stereo"] or \
+               not k_r["is_visible_in_both_stereo"]:
                 break
             data_kpt_intrp[im_name] = None
             if not k_l["is_interp"] and not k_r["is_interp"]:
@@ -523,7 +526,8 @@ class GT:
             self.Keypoints.update_ktp_pairs(im_name)
             k_l, k_r = self.Keypoints.get_kpts_given_ind_id(ind_id)
             if k_l is None or k_r is None \
-               or not k_l["is_visible"] or not k_r["is_visible"]:
+               or not k_l["is_visible_in_both_stereo"] \
+               or not k_r["is_visible_in_both_stereo"]:
                 data_kpt[ind_im] = None
                 continue
             # Get keypoint's 3D point
@@ -731,7 +735,7 @@ class Draw:
 
 
     def zoom_mode_copy_kpt(self, is_left, kpt):
-        if not kpt["is_visible"]:
+        if not kpt["is_visible_in_both_stereo"]:
             kpt = None
         if is_left:
             self.zoom_kpt_l = kpt
@@ -747,8 +751,8 @@ class Draw:
             color = np.array(self.kpt_color_s, dtype=np.uint8).tolist()
             self.zoom_mode_copy_kpt(is_left, kpt)
         # Draw X if not visible and return
-        is_visible = kpt["is_visible"]
-        if not is_visible:
+        is_visible_in_both_stereo = kpt["is_visible_in_both_stereo"]
+        if not is_visible_in_both_stereo:
             if ind_id == self.ind_id: # Only if the ind_id is selected
                 if self.is_zoom_on:
                     self.zoom_mode_reset()

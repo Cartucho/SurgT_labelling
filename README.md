@@ -1,39 +1,67 @@
-# stereo_labeling
+# SurgT_labelling
 
 [![GitHub stars](https://img.shields.io/github/stars/Cartucho/stereo_labeling.svg?style=social&label=Stars)](https://github.com/Cartucho/stereo_labeling)
 
-
-The goal of this tool is to label matches between the left and right images of a stereo video. I also added an interpolation feature so that you label only a few frame-pairs and then you press `i` (standing for interpolate) to automatically interpolate the labels for the other frame-pairs in between the ones that you labeled.
+Goal: Get ground truth bounding boxes given a stereo video + camera calibration parameters.  
 
 <img src="https://user-images.githubusercontent.com/15831541/139836761-24aeb645-61ef-47a4-9752-87411b5634e8.png">
 
-On the bottom left of the interface you can see the current index of the image pair and the id of the currently selected keypoint. As I will explain, the idea is to label the keypoints one by one, from `id=0` until `id= number of keypoints that you will label`. I set the `w` `a` `s` `d` keys for navigating through the images and keypoint ids. By default `a` and `d` are used to go to the previous and next image, and `w` and `s` to go to the next and previous keypoint id. If you don't like these keys you can change them according to your preferance by editing the [config.yaml](https://github.com/Cartucho/stereo_labeling/blob/main/config.yaml) file. It is also in the [config.yaml](https://github.com/Cartucho/stereo_labeling/blob/main/config.yaml) file where you set the input directory, containing the images that you will label. I assume that you will have a folder with the left images, and another one with the right images.
+On the bottom-left of the interface you can see the index of the current image pair and bounding box id. The `w` `a` `s` `d` keys are set default keys for selecting different images and bounding boxes ids. `a` and `d` are used to go to the previous and next image, respectively, and `w` and `s` to go to the next and previous bounding box id, respectively. If can change the keys according to your preferance by editing the [config.yaml](https://github.com/Cartucho/stereo_labeling/blob/main/config.yaml) file. It is also in the [config.yaml](https://github.com/Cartucho/stereo_labeling/blob/main/config.yaml) file where you set the input directory, video and calibration parameters.
 
-## Usage
+## Labelling instructions for the SurgT MICCAI challenge
+
+You will be labelling the bounding boxes by clicking on the same target in both images. You want to guarantee that the centre of the bounding box is always targeting the same tissue region.
+
+#### Definitions
+
+For each target bounding box:
+
+- `is_difficult`
+Set `is_difficult = True` if the target's centre point is under:
+  - **motion blur**
+  - **specular highlights**
+  - **low illumination**
+  - **smoke**
+  - **partial occlusion**
+  - **partial out-of-view**
+
+- `is_visible_in_both_stereo`
+Set `is_visible_in_both_stereo = False` if the target's centre point is **fully out-of-view** or **fully occluded** in either the left or right image, in other words only when it is compelety invisible in one of the stereo images. Otherwise `is_visible_in_both_stereo = True` even if `is_difficult = True`.
+
+
+#### How to label?
 
 The usage idea is the following:
-1. First choose the image keypoint that you will be labeling. You will label that keypoint on the entire video before starting to label the next keypoint;
-2. After choosing the keypoint, go through the entire video, from index 0 onwards, and pay attention if the keypoint is visible in both the left and right images. If the keypoint is not visible in a specific image, press `v` (standing for `visibility`), which will toggle the `is_visible` between True and False. When `is_visible=False`, a red cross will show on top of the images to signal that the keypoint is not visible.
-    + If you want to modify a range of pictures in once, press `r` (standing for range), then go select the range of images and click `v`, this way you toggle the visibility of all the selected pictures. The range is shown on the bottom left of the interface;
-3. After marking all the pictures where the keypoint is not visible, you can start labeling the other pictures. You can do it by simply left-clicking over the keypoint in both the left and right image.
-    + If you have `is_rectified: True` in the config file, then the interface will force you to choose the same height pixel coordinate for both the left and right image.
-    + If you label a set of image pairs, for example if you label image_pair `0, 5, 10 and 15`, then if you press `i`, the images in between `1,2,...,4,6,7,...,9,11,...14` will be automatically labeled using interpolation. You can check the result of the interpolation if you don't like the result press `e` to eliminate a kpt label and then you can manually label that keypoint an press `i` again to refine the interpolation. You can only eliminate the currently selected keypoint id which is shown in red.
+1. The annotator should watch the entire video and decide which keypoint will be labelled next;
+2. Then, the annotator should classify `is_visible_in_both_stereo` for all the frame-pairs of the video. This can be done by pressing `v` over an image, or `v` over a range of images. A big red X will be draw over the images with `is_visible_in_both_stereo = False`;
+3. Then the annotator should labell the keypoint in all the remaining images, where `is_visible_in_both_stereo = True`. All the keypoints should respect:
+    1. The annotator should ensure that the keypoint is mapped accurately and corresponds to the same target in both stereo images;
+    2. The annotator should also look back at the previous frame in the video sequence to ensure temporal video consistency in labelling;
+    3. If it the keypoint is difficult to label, according to the definition above, then the annotator should set `is_difficult = True`. This can be done by pressing `m` to `m`ark the bounding box as a difficult one. You will notice that the bounding box will draw a X inside it when `is_difficult = True`.
+4. Steps 1. to 3. should be repeated if you want to labell multiple keypoints per video. If that is the case, then go back to the first video frame and press `w` to select the next keypoint id. Then you can start the labelling for the new keypoint id;
+5. For the SurgT challenge, the annotators are never allowed to use `i`nterpolation, automation or external intervention to aid their labelling;
+6. The annotations should be reviewed by another annotator.
+7. Finally, once the labelling is reviewed press `g` to generate the `g`round truth.
     + If you want to eliminate a range of pictures you can again use `r` for range, and select the image range first, followed by pressing `e` to eliminate;
 4. Once you are satisfied with the labeling of that keypoint in the entire stereo video, you can go back to the img 0, press `w` to select the next keypoint id, and go back to step 1. to start labeling the next keypoint.
 
-In summary, you want to (1) choose keypoint to be labeled, (2) mark visibility, (3) label, and repeat for the next keypoint.
+#### How to eliminate a bounding box?
 
-Also, I suggest using a mouse since it will make the labeling process easier. You can even zoom in and out of the pictures using the middle scroll of the mouse.
+First select the bounding box that you want to delete. By default the selected bounding box is shown in red. Then press `e` (standing for `e`liminate).
 
+#### How to select a range of images?
+
+If you want to set `is_visible_in_both_stereo = False` to a range of pictures you can again use `r` (standing for `r`ange). After pressing `r` just use `a` and `d` to select the desired range of images. Then press `v` to toggle the visibility. The same logic would apply vice-versa.
+
+You can also use range to `e`liminate multiple images, `m`ark as `is_difficult`.
 
 ## Zoom mode
 
-The zoom mode allows you to label the kpt faster without having to zoom in and out all the time. When you labeling keypoints or browsing through the existing ones you will notice that there is a blue rectangle being created, if you press `z` (standing for `z`oom) you will zoom in or out of that blue rectangle.
+The middle mouse can be used for zoom-in and zoom-out of the images, however, it is more practical to use the zoom mode. The zoom mode allows you to labell faster by focusing on the area around the keypoints. Labell a pair of keypoints and you will notice a blue rectangle around them, if you press `z` (standing for `z`oom) you will zoom in or out of that blue rectangle. In zoom mode you can also re-adjust the bounding boxes by clicking again. Give it a try!
 
 ## How to run it?
 
 I recommend you to create a Python virtual environment:
-
 
 ```
 python3.9 -m pip install --user virtualenv
