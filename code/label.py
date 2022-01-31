@@ -804,6 +804,26 @@ class Draw:
                                        self.mouse_v)
                 # Draw new keypoint as well
                 self.update_im_with_keypoints(False)
+            elif self.is_zoom_on:
+                # Re-adjust label (only allowed in zoom mode)
+                if self.is_mouse_on_im_l:
+                    self.zoom_kpt_l["u"] = self.mouse_u
+                else:
+                    self.zoom_kpt_r["u"] = self.mouse_u
+                self.zoom_kpt_l["v"] = self.mouse_v
+                self.zoom_kpt_r["v"]  = self.mouse_v
+                # Re-adjust left
+                self.Keypoints.new_kpt(True,
+                                       self.ind_id,
+                                       self.zoom_kpt_l["u"],
+                                       self.zoom_kpt_l["v"])
+               # Re-adjust right
+                self.Keypoints.new_kpt(False,
+                                       self.ind_id,
+                                       self.zoom_kpt_r["u"],
+                                       self.zoom_kpt_r["v"])
+                # Draw new keypoints as well
+                self.update_im_with_keypoints(False)
 
 
     def get_text_scale_to_fit_height(self, txt, font, thickness):
