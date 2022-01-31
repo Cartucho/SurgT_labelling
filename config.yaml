@@ -1,13 +1,23 @@
 # User settings
 data:
     dir: "data"
+    # Input
+    input_calib: "calibration.yaml"
+    input_vid: "video.mp4"
+    vid_stack: "horizontal" # "vertical" or "horizontal"
+    is_to_rectify: True # Set `True` if the video is not rectified yet!
+    # The images in the video will be rectified and stored in:
     subdir_stereo_l: "left"
     subdir_stereo_r: "right"
-    is_rectified: True # Are images rectified
-    im_format: ".png"
+    im_format: ".png" # Images will be saved in this format
+    # Output 1: centre point labels
     subdir_output_l: "left_kpts"
     subdir_output_r: "right_kpts"
-key: # Interface keys
+    # Output 2: bounding boxes around centre point
+    gt_sphere_rad_mm: 2.5 # Sphere radius around kpt for ground-truth bboxes
+    file_output_gt: "gt_rectified_{}.yaml"
+# Interface keys
+key:
     quit: "q"
     im_prev: "a" # Go to previous image pair
     im_next: "d" # Go to next image pair
@@ -18,6 +28,7 @@ key: # Interface keys
     visible: "v" # Is kpt visible? Toggle key
     range: "r"   # Range
     zoom: "z"    # Toggle zoom-mode
+    gtruth: "g"  # Get ground-truth bounding-boxes
 # Code configuration
 vis:
     window_name: "Stereo-matches labeler"

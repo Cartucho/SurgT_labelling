@@ -1,5 +1,7 @@
 import glob
 import os
+import math
+
 from natsort import natsorted
 import cv2 as cv
 import numpy as np
@@ -257,7 +259,7 @@ class Interpolation:
         return data_kpt_intrp
 
 
-    def interp_kpts_and_save(self, data_kpt_intrp, is_rectified, ind_id):
+    def interp_kpts_and_save(self, data_kpt_intrp, ind_id):
         """ Interpolate in between frames """
         im_an = [] # Anchors used for interpolation
         kpt_l_u = []
@@ -277,10 +279,7 @@ class Interpolation:
         interp_k_l_u = self.get_interp_values(im_an, kpt_l_u, i_min, i_max, i_n)
         interp_k_l_v = self.get_interp_values(im_an, kpt_l_v, i_min, i_max, i_n)
         interp_k_r_u = self.get_interp_values(im_an, kpt_r_u, i_min, i_max, i_n)
-        if is_rectified:
-            interp_k_r_v = interp_k_l_v
-        else:
-            interp_k_r_v = self.get_interp_values(im_an, kpt_r_v, i_min, i_max, i_n)
+        interp_k_r_v = interp_k_l_v # Since images are rectified
         """ Save interpolation data """
         im_h, im_w = self.Images.get_resolution()
         for i, (k_key, k_val) in enumerate(natsorted(data_kpt_intrp.items())):
@@ -304,19 +303,214 @@ class Interpolation:
                     self.Keypoints.new_intrp_pair(ind_id, u_l, v_l, u_r, v_r)
 
 
-    def start(self, ind_id, ind_im, is_rectified):
+    def start(self, ind_id, ind_im):
         data_kpt_intrp = self.get_kpt_data_given_id_and_im(ind_id, ind_im)
         if data_kpt_intrp is None:
             return
-        self.interp_kpts_and_save(data_kpt_intrp, is_rectified, ind_id)
+        self.interp_kpts_and_save(data_kpt_intrp, ind_id)
+
+
+class GT:
+    def __init__(self, v, Images, Keypoints, radius, file_out):
+        self.video = v
+        self.Images = Images
+        self.Keypoints = Keypoints
+        self.file_out = file_out
+        self.radius = radius
+        self.baseline = 1. / self.video.Q[3, 2]
+        self.P1 = self.video.P1
+        self.P1_transp = np.transpose(self.P1)
+        self.P2 = self.video.P2
+        self.P2_transp = np.transpose(self.P2)
+        # Note: `self.Q` != `self.video.Q`, the sphere's conic is diff from the rectification Q
+        self.Q = np.array([[1., 0., 0.,  0.],
+                           [0., 1., 0.,  0.],
+                           [0., 0., 1.,  0.],
+                           [0., 0., 0., -radius**2]])
+        self.Q /= self.Q[3,3]
+        self.H_inv = np.array([[1., 0., 0.],
+                               [0., 1., 0.],
+                               [0., 0., 1.],
+                               [0., 0., 0.]
+                               ])
+
+
+    def get_kpt_3d_pt(self, k_l, k_r):
+        disp = k_l["u"] - k_r["u"]
+        pt_2d = np.array([[k_l["u"]],
+                          [k_l["v"]],
+                          [disp],
+                          [1.0]
+                          ], dtype=np.float32)
+        pt_3d = np.matmul(self.video.Q, pt_2d)
+        assert(disp > 0)
+        pt_3d /= pt_3d[3, 0]
+        return pt_3d
+
+
+    def get_ellipse_param(self, P, Q_, P_transp):
+        C = np.linalg.inv(P @ np.linalg.inv(Q_) @ P_transp)
+        #C = C / C[2,2]
+
+        Q = C # Renaming C to Q to make formulas consistent with Wikipedia
+        # Get the coefficients
+        A = Q[0, 0]
+        B = Q[0, 1] * 2.0
+        C = Q[1, 1]
+        D = Q[0, 2] * 2.0
+        E = Q[1, 2] * 2.0
+        F = Q[2, 2]
+
+        # Check if it is indeed an ellipse
+        if np.linalg.det(Q) == 0:
+            raise ValueError("Degenerate conic found!")
+
+        if np.linalg.det(Q[:2,:2]) <= 0: # According to Wikipedia
+            raise ValueError("These parameters do not define an ellipse!")
+
+        # Get centre
+        denominator = B**2 - 4*A*C
+        centre_x = (2*C*D - B*E) / denominator
+        centre_y = (2*A*E - B*D) / denominator
+        #print("Centre x:{} y:{}".format(centre_x, centre_y))
+
+        # Get major and minor axes
+        K = - np.linalg.det(Q[:3,:3]) / np.linalg.det(Q[:2,:2])
+        root = math.sqrt(((A - C)**2 + B**2))
+        a = math.sqrt(2*K / (A + C - root))
+        b = math.sqrt(2*K / (A + C + root))
+        #print("Major:{} minor:{}".format(a, b))
+
+        # Get angle
+        angle = math.atan2(C - A + root, B)
+        angle *= 180.0/math.pi # Convert angle to degrees
+        #print("Angle in degrees: {}".format(angle))
+        return (centre_x, centre_y, a, b, angle)
+
+
+    def get_bbox_from_ellipse(self, ellipse_info):
+        mask = np.zeros((self.Images.im_h, self.Images.im_w), dtype=np.uint8)
+        centre_x, centre_y, a, b, angle = ellipse_info
+        mask = cv.ellipse(mask,
+                          (int(round(centre_x)), int(round(centre_y))),
+                          (int(round(b)), int(round(a))),
+                          angle,
+                          startAngle=0,
+                          endAngle=360,
+                          color=(255),
+                          thickness=1,
+                          #lineType=cv.LINE_AA
+                         )
+        # Get bbox around contour
+        contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        bbox = cv.boundingRect(contours[0])
+        """
+        # Uncomment to visualize the ellipse and rectangle
+        cv.rectangle(mask,
+                     (int(bbox[0]), int(bbox[1])),
+                     (int(bbox[0]+bbox[2]), int(bbox[1]+bbox[3])),
+                     255,
+                     2)
+        cv.imshow("debug", mask)
+        cv.waitKey(0)
+        #"""
+        return bbox
+
+
+    def project_sphere_around_kpt(self, kpt_3d, k_l, k_r):
+        H_inv = np.hstack((self.H_inv, kpt_3d))
+        H_inv_transp = np.transpose(H_inv)
+        Q_ = H_inv_transp @ self.Q @ H_inv
+        ellipse_1 = self.get_ellipse_param(self.P1, Q_, self.P1_transp)
+        #ellipse_2 = self.get_ellipse_param(self.P2, Q_, self.P2_transp) # Does not work, I am not sure why
+        """ Other way, translate the 3D point as it if the right camera was the main coordinate frame """
+        kpt_3d[0,0] -= self.baseline
+        P2 = self.P2.copy()
+        P2[:, 3] = 0 # Set translation part of P2 to 0
+        P2_transp = np.transpose(P2)
+        H_inv = np.hstack((self.H_inv, kpt_3d))
+        H_inv_transp = np.transpose(H_inv)
+        Q_ = H_inv_transp @ self.Q @ H_inv
+        ellipse_2 = self.get_ellipse_param(P2, Q_, P2_transp)
+        #"""
+        #print(ellipse_1)
+        #print(ellipse_2)
+        bbox1 = self.get_bbox_from_ellipse(ellipse_1)
+        bbox2 = self.get_bbox_from_ellipse(ellipse_2)
+        # Adjust bboxs so that the centre remains the same as the labelled one
+        bbox1_half_w = int(bbox1[2] / 2)
+        bbox1_half_h = int(bbox1[3] / 2)
+        bbox1 = (k_l["u"] - bbox1_half_w,
+                 k_l["v"] - bbox1_half_h,
+                 bbox1_half_w * 2,
+                 bbox1_half_h * 2)
+        bbox2_half_w = int(bbox2[2] / 2)
+        bbox2_half_h = int(bbox2[3] / 2)
+        bbox2 = (k_r["u"] - bbox2_half_w,
+                 k_r["v"] - bbox2_half_h,
+                 bbox2_half_w * 2,
+                 bbox2_half_h * 2)
+        return bbox1, bbox2
+
+
+    def project_3d_into_2d(self, kpt_3d, k_l, k_r):
+        kpt_2d_l = self.P1 @ kpt_3d
+        kpt_2d_r = self.P2 @ kpt_3d
+        kpt_2d_l /= kpt_2d_l[2, 0]
+        kpt_2d_r /= kpt_2d_r[2, 0]
+        # Get bbox width by moving by `radius` in X
+        kpt_3d[0,0] += self.radius
+        kpt_2d_l2 = self.P1 @ kpt_3d
+        kpt_2d_r2 = self.P2 @ kpt_3d
+        kpt_2d_l2 /= kpt_2d_l2[2, 0]
+        kpt_2d_r2 /= kpt_2d_r2[2, 0]
+        bbox_size_l = int(round(kpt_2d_l2[0, 0] - kpt_2d_l[0, 0]))
+        bbox_size_r = int(round(kpt_2d_r2[0, 0] - kpt_2d_r[0, 0]))
+        # bbox tupple
+        bbox1 = (k_l["u"] - bbox_size_l,
+                 k_l["v"] - bbox_size_l,
+                 bbox_size_l * 2,
+                 bbox_size_l * 2)
+        bbox2 = (k_r["u"] - bbox_size_r,
+                 k_r["v"] - bbox_size_r,
+                 bbox_size_r * 2,
+                 bbox_size_r * 2)
+        return (bbox1, bbox2)
+
+
+    def start(self, ind_id):
+        print("Get ground truth!")
+        out_path = self.file_out.format(ind_id)
+        # Loop through images (from 0 until the last frame)
+        n_images = self.Images.get_n_im()
+        data_kpt = {}
+        for ind_im in range(n_images):
+            # Get keypoint's 2D coordinates
+            im_name = self.Images.get_im_pair_name(ind_im)
+            self.Keypoints.update_ktp_pairs(im_name)
+            k_l, k_r = self.Keypoints.get_kpts_given_ind_id(ind_id)
+            if k_l is None or k_r is None \
+               or not k_l["is_visible"] or not k_r["is_visible"]:
+                data_kpt[ind_im] = None
+                continue
+            # Get keypoint's 3D point
+            kpt_3d = self.get_kpt_3d_pt(k_l, k_r)
+            # Project sphere into unrectified image
+            bboxs = self.project_sphere_around_kpt(kpt_3d, k_l, k_r)
+            # Project 3D points into 2D to get bbox size
+            #bboxs = self.project_3d_into_2d(kpt_3d, k_l, k_r)
+            # Get bbox around mask
+            data_kpt[ind_im] = bboxs
+        print("Done!")
+        utils.write_yaml_data(out_path, data_kpt)
 
 
 class Draw:
-    def __init__(self, config):
+    def __init__(self, config, v):
         self.ind_im = 0
         self.ind_id = 0
         self.is_zoom_on = False
-        self.load_data_config(config)
+        self.load_data_config(config, v)
         self.load_vis_config(config)
         self.mouse_u = 0
         self.mouse_v = 0
@@ -327,13 +521,12 @@ class Draw:
         self.range_end   = -1
 
 
-    def load_data_config(self, config):
+    def load_data_config(self, config, v):
         c_data = config["data"]
         self.dir_data = c_data["dir"]
         # Images
         dir_l = os.path.join(self.dir_data, c_data["subdir_stereo_l"])
         dir_r = os.path.join(self.dir_data, c_data["subdir_stereo_r"])
-        self.is_rectified = c_data["is_rectified"]
         im_format = c_data["im_format"]
         self.Images = Images(dir_l, dir_r, im_format)
         # Keypoints
@@ -342,6 +535,10 @@ class Draw:
         self.Keypoints = Keypoints(dir_out_l, dir_out_r)
         # Interpolation
         self.Interpolation = Interpolation(self.Images, self.Keypoints)
+        # Ground-truth
+        gt_sph_rad_mm = c_data["gt_sphere_rad_mm"]
+        file_out_gt = os.path.join(self.dir_data, c_data["file_output_gt"])
+        self.GT = GT(v, self.Images, self.Keypoints, gt_sph_rad_mm, file_out_gt)
 
 
     def load_vis_config(self, config):
@@ -389,20 +586,15 @@ class Draw:
         v = self.mouse_v
         pt_l = (0, v)
         pt_r = (self.im_w, v)
-        if self.is_rectified:
-            cv.line(self.im_l_all, pt_l, pt_r, color, line_thick)
-            cv.line(self.im_r_all, pt_l, pt_r, color, line_thick)
+        cv.line(self.im_l_all, pt_l, pt_r, color, line_thick)
+        cv.line(self.im_r_all, pt_l, pt_r, color, line_thick)
         u = self.mouse_u
         pt_t = (u, 0)
         pt_b = (u, self.im_h)
         if self.is_mouse_on_im_l:
             cv.line(self.im_l_all, pt_t, pt_b, color, line_thick)
-            if not self.is_rectified:
-                cv.line(self.im_l_all, pt_l, pt_r, color, line_thick)
         elif self.is_mouse_on_im_r:
             cv.line(self.im_r_all, pt_t, pt_b, color, line_thick)
-            if not self.is_rectified:
-                cv.line(self.im_r_all, pt_l, pt_r, color, line_thick)
 
 
     def im_draw_kpt_cross(self, im, u, v, color):
@@ -570,16 +762,15 @@ class Draw:
             else:
                 self.is_mouse_on_im_r = True
                 u -= self.im_w
-        # Force `v` if a point was already labeled and `is_rectified=True`
-        if self.is_rectified:
-            if self.is_mouse_on_im_l:
-                kpt_n_r = self.Keypoints.get_new_kpt_r()
-                if kpt_n_r is not None:
-                    v = kpt_n_r["v"]
-            elif self.is_mouse_on_im_r:
-                kpt_n_l = self.Keypoints.get_new_kpt_l()
-                if kpt_n_l is not None:
-                    v = kpt_n_l["v"]
+        # Force `v` if a point was already labeled
+        if self.is_mouse_on_im_l:
+            kpt_n_r = self.Keypoints.get_new_kpt_r()
+            if kpt_n_r is not None:
+                v = kpt_n_r["v"]
+        elif self.is_mouse_on_im_r:
+            kpt_n_l = self.Keypoints.get_new_kpt_l()
+            if kpt_n_l is not None:
+                v = kpt_n_l["v"]
         # Update position only if inside one of the images
         if self.is_mouse_on_im_l or\
            self.is_mouse_on_im_r:
@@ -716,7 +907,7 @@ class Draw:
     def interp_kpt_positions(self):
         if self.selected_id_not_visible:
             return
-        self.Interpolation.start(self.ind_id, self.ind_im, self.is_rectified)
+        self.Interpolation.start(self.ind_id, self.ind_im)
         """ Show the newly interpolated keypoints """
         self.update_im_with_keypoints(True)
 
@@ -801,10 +992,13 @@ class Draw:
         return draw
 
 
+    def save_gtruth(self):
+        self.GT.start(self.ind_id)
+
 class Interface:
-    def __init__(self, config):
+    def __init__(self, config, v):
         self.load_keys_config(config)
-        self.Draw = Draw(config)
+        self.Draw = Draw(config, v)
         c_vis = config["vis"]
         self.window_name = c_vis["window_name"]
         self.create_window()
@@ -822,6 +1016,7 @@ class Interface:
         self.key_visibl  = c_keys["visible"]
         self.key_range   = c_keys["range"]
         self.key_zoom    = c_keys["zoom"]
+        self.key_gtruth  = c_keys["gtruth"]
 
 
     def mouse_listener(self, event, x, y, flags, param):
@@ -857,6 +1052,8 @@ class Interface:
             self.Draw.range_toggle()
         elif key_pressed == ord(self.key_zoom):
             self.Draw.zoom_mode_toggle()
+        elif key_pressed == ord(self.key_gtruth):
+            self.Draw.save_gtruth()
 
 
     def main_loop(self):
@@ -869,6 +1066,143 @@ class Interface:
             self.check_key_pressed(key_pressed)
 
 
+class Video:
+    def __init__(self, calib_path, vid_path, vid_stack, is_to_rect, dir_l, dir_r, im_format):
+        # Load calibration data
+        self.load_calib_data(calib_path)
+        self.stack_type = vid_stack
+        self.get_im_size(vid_path)
+        self.stereo_rectify()
+        self.get_rectification_maps()
+        # Get frames if needed
+        self.is_to_rectify = is_to_rect
+        self.get_frames_if_needed(dir_l, dir_r, vid_path, vid_stack, im_format)
+
+
+    def get_im_size(self, vid_path):
+        # Load first frame of video to get image size
+        cap = cv.VideoCapture(vid_path)
+        ret, frame = cap.read()
+        if ret:
+            self.im_h, self.im_w = frame.shape[:2]
+            if self.stack_type == "vertical":
+                self.im_h = int(self.im_h / 2)
+            elif self.stack_type == "horizontal":
+                self.im_w = int(self.im_w / 2)
+            else:
+                print("Error: unrecognized video type {}".format(self.stack_type))
+        else:
+            print("Error: failed to load video {}".format(vid_path))
+            exit()
+        cap.release()
+
+
+    def load_calib_data(self, calib_path):
+        fs = cv.FileStorage(calib_path, cv.FILE_STORAGE_READ)
+        self.r = np.array(fs.getNode('R').mat(), dtype=np.float64)
+        self.t = np.array(fs.getNode('T').mat()[0], dtype=np.float64)
+        self.m1 = np.array(fs.getNode('M1').mat(), dtype=np.float64)
+        self.d1 = np.array(fs.getNode('D1').mat()[0], dtype=np.float64)
+        self.m2 = np.array(fs.getNode('M2').mat(), dtype=np.float64)
+        self.d2 = np.array(fs.getNode('D2').mat()[0], dtype=np.float64)
+
+
+    def stereo_rectify(self):
+        self.R1, self.R2, self.P1, self.P2, self.Q, _roi1, _roi2 = \
+            cv.stereoRectify(cameraMatrix1=self.m1,
+                             distCoeffs1=self.d1,
+                             cameraMatrix2=self.m2,
+                             distCoeffs2=self.d2,
+                             imageSize=(self.im_w, self.im_h),
+                             R=self.r,
+                             T=self.t,
+                             flags=cv.CALIB_ZERO_DISPARITY,
+                             alpha=0.0
+                            )
+
+
+    def get_rectification_maps(self):
+        self.map1_x, self.map1_y = \
+            cv.initUndistortRectifyMap(cameraMatrix=self.m1,
+                                       distCoeffs=self.d1,
+                                       R=self.R1,
+                                       newCameraMatrix=self.P1,
+                                       size=(self.im_w, self.im_h),
+                                       m1type=cv.CV_32FC1
+                                      )
+
+        self.map2_x, self.map2_y = \
+            cv.initUndistortRectifyMap(
+                                       cameraMatrix=self.m2,
+                                       distCoeffs=self.d2,
+                                       R=self.R2,
+                                       newCameraMatrix=self.P2,
+                                       size=(self.im_w, self.im_h),
+                                       m1type=cv.CV_32FC1
+                                      )
+
+
+    def split_frame(self, frame):
+        if self.stack_type == "vertical":
+            im1 = frame[:self.im_h, :]
+            im2 = frame[self.im_h:, :]
+        elif self.stack_type == "horizontal":
+            im1 = frame[:, :self.im_w]
+            im2 = frame[:, self.im_w:]
+        else:
+            print("Error: unrecognized stack type `{}`!".format(stack_type))
+            exit()
+        if self.is_to_rectify:
+            im1 = cv.remap(im1, self.map1_x, self.map1_y, cv.INTER_LINEAR)
+            im2 = cv.remap(im2, self.map2_x, self.map2_y, cv.INTER_LINEAR)
+        return im1, im2
+
+
+    def get_frames_if_needed(self, dir_l, dir_r, vid_path, vid_stack, im_format):
+        if os.path.isdir(dir_l) and os.path.isdir(dir_r):
+            return
+        # Make output dirs
+        os.mkdir(dir_l)
+        os.mkdir(dir_r)
+        # Go thourgh each frame
+        print("Getting frames from video...")
+        cap = cv.VideoCapture(vid_path)
+        frame_counter = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            im1, im2 = self.split_frame(frame)
+            im1_path = os.path.join(dir_l, "{:04}.png".format(frame_counter)) # TODO: hardcoded 4 padded zeros
+            cv.imwrite(im1_path, im1)
+            im2_path = os.path.join(dir_r, "{:04}.png".format(frame_counter))
+            cv.imwrite(im2_path, im2)
+
+            frame_counter += 1
+        print("Finished!")
+        cap.release()
+
+
+def download_video_frames_and_rectify(config):
+    # Download video into frames
+    config_d = config['data']
+    dir_data = config_d["dir"]
+    calib_path = config_d["input_calib"]
+    calib_path = os.path.join(dir_data, calib_path)
+    vid_path = config_d["input_vid"]
+    vid_path = os.path.join(dir_data, vid_path)
+    vid_stack = config_d["vid_stack"]
+    is_to_rect = config_d["is_to_rectify"]
+    dir_l = config_d['subdir_stereo_l']
+    dir_l = os.path.join(dir_data, dir_l)
+    dir_r = config_d['subdir_stereo_r']
+    dir_r = os.path.join(dir_data, dir_r)
+    im_format = config_d['im_format']
+    v = Video(calib_path, vid_path, vid_stack, is_to_rect, dir_l, dir_r, im_format)
+    return v
+
+
 def label_data(config):
-    inter = Interface(config)
+    v = download_video_frames_and_rectify(config)
+    inter = Interface(config, v)
     inter.main_loop()
