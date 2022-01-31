@@ -82,6 +82,8 @@ class Keypoints:
         for key in not_pair:
             self.kpts_l.pop(key, None)
             self.kpts_r.pop(key, None)
+            self.new_l = None
+            self.new_r = None
 
 
     def save_kpt_pairs_to_files(self):
@@ -580,7 +582,7 @@ class Draw:
 
 
     def im_draw_guide_line(self):
-        self.copy_im_kpt_to_all()
+        self.copy_im_kpt_to_all() # Not to accumulate the guide lines
         line_thick = self.guide_t
         color = np.array(self.guide_c, dtype=np.uint8).tolist()
         v = self.mouse_v
@@ -910,6 +912,7 @@ class Draw:
 
 
     def im_next(self):
+        self.Keypoints.eliminate_unpaired_kpts()
         self.ind_im += 1
         if self.ind_im > (self.n_im - 1):
             self.ind_im = 0
@@ -919,6 +922,7 @@ class Draw:
 
 
     def im_prev(self):
+        self.Keypoints.eliminate_unpaired_kpts()
         self.ind_im -= 1
         if self.ind_im < 0:
             self.ind_im = (self.n_im - 1)
@@ -928,12 +932,14 @@ class Draw:
 
 
     def id_next(self):
+        self.Keypoints.eliminate_unpaired_kpts()
         self.ind_id += 1
         self.zoom_mode_reset()
         self.update_im_with_keypoints(False)
 
 
     def id_prev(self):
+        self.Keypoints.eliminate_unpaired_kpts()
         self.ind_id -=1
         if self.ind_id < 0:
             self.ind_id = 0
