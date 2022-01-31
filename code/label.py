@@ -1,5 +1,7 @@
 import glob
 import os
+import math
+
 from natsort import natsorted
 import cv2 as cv
 import numpy as np
@@ -156,7 +158,7 @@ class Keypoints:
 
 
 class Images:
-    def __init__(self, dir_l, dir_r, im_format):
+    def __init__(self, dir_l, dir_r, im_format, calib_path):
         path_l = os.path.join(dir_l, "*{}".format(im_format))
         path_r = os.path.join(dir_r, "*{}".format(im_format))
         self.im_path_l = natsorted(glob.glob(path_l))
@@ -166,7 +168,33 @@ class Images:
         self.im_h = -1
         self.im_w = -1
         self.n_im = len(self.im_path_l)
+        # Load calibration data
+        self.load_calib_data(calib_path)
+        self.stereo_rectify()
 
+
+    def load_calib_data(self, calib_path):
+        fs = cv.FileStorage(calib_path, cv.FILE_STORAGE_READ)
+        self.r = np.array(fs.getNode('R').mat(), dtype=np.float64)
+        self.t = np.array(fs.getNode('T').mat()[0], dtype=np.float64)
+        self.m1 = np.array(fs.getNode('M1').mat(), dtype=np.float64)
+        self.d1 = np.array(fs.getNode('D1').mat()[0], dtype=np.float64)
+        self.m2 = np.array(fs.getNode('M2').mat(), dtype=np.float64)
+        self.d2 = np.array(fs.getNode('D2').mat()[0], dtype=np.float64)
+
+
+    def stereo_rectify(self):
+        self.R1, self.R2, self.P1, self.P2, self.Q, _roi1, _roi2 = \
+            cv.stereoRectify(cameraMatrix1=self.m1,
+                             distCoeffs1=self.d1,
+                             cameraMatrix2=self.m2,
+                             distCoeffs2=self.d2,
+                             imageSize=(self.im_w, self.im_h),
+                             R=self.r,
+                             T=self.t,
+                             flags=cv.CALIB_ZERO_DISPARITY,
+                             alpha=0.0
+                            )
 
     def get_n_im(self):
         return self.n_im
@@ -311,6 +339,198 @@ class Interpolation:
         self.interp_kpts_and_save(data_kpt_intrp, is_rectified, ind_id)
 
 
+class GT:
+    def __init__(self, Images, Keypoints, radius, file_out):
+        self.Images = Images
+        self.Keypoints = Keypoints
+        self.file_out = file_out
+        self.radius = radius
+        self.baseline = 1. / self.Images.Q[3, 2]
+        self.P1 = self.Images.P1
+        self.P1_transp = np.transpose(self.P1)
+        self.P2 = self.Images.P2
+        self.P2_transp = np.transpose(self.P2)
+        # Note: `self.Q` != `self.Images.Q`, the sphere's conic is diff from the rectification Q
+        self.Q = np.array([[1., 0., 0.,  0.],
+                           [0., 1., 0.,  0.],
+                           [0., 0., 1.,  0.],
+                           [0., 0., 0., -radius**2]])
+        self.Q /= self.Q[3,3]
+        self.H_inv = np.array([[1., 0., 0.],
+                               [0., 1., 0.],
+                               [0., 0., 1.],
+                               [0., 0., 0.]
+                               ])
+
+
+    def get_kpt_3d_pt(self, k_l, k_r):
+        disp = k_l["u"] - k_r["u"]
+        pt_2d = np.array([[k_l["u"]],
+                          [k_l["v"]],
+                          [disp],
+                          [1.0]
+                          ], dtype=np.float32)
+        pt_3d = np.matmul(self.Images.Q, pt_2d)
+        pt_3d /= pt_3d[3, 0]
+        return pt_3d
+
+
+    def get_ellipse_param(self, P, Q_, P_transp):
+        C = np.linalg.inv(P @ np.linalg.inv(Q_) @ P_transp)
+        #C = C / C[2,2]
+
+        Q = C # Renaming C to Q to make formulas consistent with Wikipedia
+        # Get the coefficients
+        A = Q[0, 0]
+        B = Q[0, 1] * 2.0
+        C = Q[1, 1]
+        D = Q[0, 2] * 2.0
+        E = Q[1, 2] * 2.0
+        F = Q[2, 2]
+
+        # Check if it is indeed an ellipse
+        if np.linalg.det(Q) == 0:
+            raise ValueError("Degenerate conic found!")
+
+        if np.linalg.det(Q[:2,:2]) <= 0: # According to Wikipedia
+            raise ValueError("These parameters do not define an ellipse!")
+
+        # Get centre
+        denominator = B**2 - 4*A*C
+        centre_x = (2*C*D - B*E) / denominator
+        centre_y = (2*A*E - B*D) / denominator
+        #print("Centre x:{} y:{}".format(centre_x, centre_y))
+
+        # Get major and minor axes
+        K = - np.linalg.det(Q[:3,:3]) / np.linalg.det(Q[:2,:2])
+        root = math.sqrt(((A - C)**2 + B**2))
+        a = math.sqrt(2*K / (A + C - root))
+        b = math.sqrt(2*K / (A + C + root))
+        #print("Major:{} minor:{}".format(a, b))
+
+        # Get angle
+        angle = math.atan2(C - A + root, B)
+        angle *= 180.0/math.pi # Convert angle to degrees
+        #print("Angle in degrees: {}".format(angle))
+        return (centre_x, centre_y, a, b, angle)
+
+
+    def get_bbox_from_ellipse(self, ellipse_info):
+        mask = np.zeros((self.Images.im_h, self.Images.im_w), dtype=np.uint8)
+        centre_x, centre_y, a, b, angle = ellipse_info
+        mask = cv.ellipse(mask,
+                          (int(round(centre_x)), int(round(centre_y))),
+                          (int(round(b)), int(round(a))),
+                          angle,
+                          startAngle=0,
+                          endAngle=360,
+                          color=(255),
+                          thickness=1,
+                          #lineType=cv.LINE_AA
+                         )
+        # Get bbox around contour
+        contours, _ = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        bbox = cv.boundingRect(contours[0])
+        """
+        # Uncomment to visualize the ellipse and rectangle
+        cv.rectangle(mask,
+                     (int(bbox[0]), int(bbox[1])),
+                     (int(bbox[0]+bbox[2]), int(bbox[1]+bbox[3])),
+                     255,
+                     2)
+        cv.imshow("debug", mask)
+        cv.waitKey(0)
+        #"""
+        return bbox
+
+
+    def project_sphere_around_kpt(self, kpt_3d, k_l, k_r):
+        H_inv = np.hstack((self.H_inv, kpt_3d))
+        H_inv_transp = np.transpose(H_inv)
+        Q_ = H_inv_transp @ self.Q @ H_inv
+        ellipse_1 = self.get_ellipse_param(self.P1, Q_, self.P1_transp)
+        #ellipse_2 = self.get_ellipse_param(self.P2, Q_, self.P2_transp) # Does not work, I am not sure why
+        """ Other way, translate the 3D point as it if the right camera was the main coordinate frame """
+        kpt_3d[0,0] -= self.baseline
+        self.P2[:, 3] = 0 # Set translation part of P2 to 0
+        self.P2_transp = np.transpose(self.P2)
+        H_inv = np.hstack((self.H_inv, kpt_3d))
+        H_inv_transp = np.transpose(H_inv)
+        Q_ = H_inv_transp @ self.Q @ H_inv
+        ellipse_2 = self.get_ellipse_param(self.P2, Q_, self.P2_transp)
+        #"""
+        #print(ellipse_1)
+        #print(ellipse_2)
+        bbox1 = self.get_bbox_from_ellipse(ellipse_1)
+        bbox2 = self.get_bbox_from_ellipse(ellipse_2)
+        # Adjust bboxs so that the centre remains the same as the labelled one
+        bbox1_half_w = int(bbox1[2] / 2)
+        bbox1_half_h = int(bbox1[3] / 2)
+        bbox1 = (k_l["u"] - bbox1_half_w,
+                 k_l["v"] - bbox1_half_h,
+                 bbox1_half_w * 2,
+                 bbox1_half_h * 2)
+        bbox2_half_w = int(bbox2[2] / 2)
+        bbox2_half_h = int(bbox2[3] / 2)
+        bbox2 = (k_r["u"] - bbox2_half_w,
+                 k_r["v"] - bbox2_half_h,
+                 bbox2_half_w * 2,
+                 bbox2_half_h * 2)
+        return bbox1, bbox2
+
+
+    def project_3d_into_2d(self, kpt_3d, k_l, k_r):
+        kpt_2d_l = self.Images.P1 @ kpt_3d
+        kpt_2d_r = self.Images.P2 @ kpt_3d
+        kpt_2d_l /= kpt_2d_l[2, 0]
+        kpt_2d_r /= kpt_2d_r[2, 0]
+        # Get bbox width by moving by `radius` in X
+        kpt_3d[0,0] += self.radius
+        kpt_2d_l2 = self.Images.P1 @ kpt_3d
+        kpt_2d_r2 = self.Images.P2 @ kpt_3d
+        kpt_2d_l2 /= kpt_2d_l2[2, 0]
+        kpt_2d_r2 /= kpt_2d_r2[2, 0]
+        bbox_size_l = int(round(kpt_2d_l2[0, 0] - kpt_2d_l[0, 0]))
+        bbox_size_r = int(round(kpt_2d_r2[0, 0] - kpt_2d_r[0, 0]))
+        # bbox tupple
+        bbox1 = (k_l["u"] - bbox_size_l,
+                 k_l["v"] - bbox_size_l,
+                 bbox_size_l * 2,
+                 bbox_size_l * 2)
+        bbox2 = (k_r["u"] - bbox_size_r,
+                 k_r["v"] - bbox_size_r,
+                 bbox_size_r * 2,
+                 bbox_size_r * 2)
+        return (bbox1, bbox2)
+
+
+    def start(self, ind_id):
+        print("Get ground truth!")
+        out_path = self.file_out.format(ind_id)
+        # Loop through images (from 0 until the last frame)
+        n_images = self.Images.get_n_im()
+        data_kpt = {}
+        for ind_im in range(n_images):
+            # Get keypoint's 2D coordinates
+            im_name = self.Images.get_im_pair_name(ind_im)
+            self.Keypoints.update_ktp_pairs(im_name)
+            k_l, k_r = self.Keypoints.get_kpts_given_ind_id(ind_id)
+            if k_l is None or k_r is None \
+               or not k_l["is_visible"] or not k_r["is_visible"]:
+                data_kpt[ind_im] = None
+                continue
+            # Get keypoint's 3D point
+            kpt_3d = self.get_kpt_3d_pt(k_l, k_r)
+            # Project sphere into unrectified image
+            bboxs = self.project_sphere_around_kpt(kpt_3d, k_l, k_r)
+            # Project 3D points into 2D to get bbox size
+            #bboxs = self.project_3d_into_2d(kpt_3d, k_l, k_r)
+            # Get bbox around mask
+            data_kpt[ind_im] = bboxs
+        print("Done!")
+        utils.write_yaml_data(out_path, data_kpt)
+
+
 class Draw:
     def __init__(self, config):
         self.ind_im = 0
@@ -333,15 +553,20 @@ class Draw:
         # Images
         dir_l = os.path.join(self.dir_data, c_data["subdir_stereo_l"])
         dir_r = os.path.join(self.dir_data, c_data["subdir_stereo_r"])
+        file_calib = os.path.join(self.dir_data, c_data["file_calib"])
         self.is_rectified = c_data["is_rectified"]
         im_format = c_data["im_format"]
-        self.Images = Images(dir_l, dir_r, im_format)
+        self.Images = Images(dir_l, dir_r, im_format, file_calib)
         # Keypoints
         dir_out_l = os.path.join(self.dir_data, c_data["subdir_output_l"])
         dir_out_r = os.path.join(self.dir_data, c_data["subdir_output_r"])
         self.Keypoints = Keypoints(dir_out_l, dir_out_r)
         # Interpolation
         self.Interpolation = Interpolation(self.Images, self.Keypoints)
+        # Ground-truth
+        gt_sph_rad_mm = c_data["gt_sphere_rad_mm"]
+        file_out_gt = os.path.join(self.dir_data, c_data["file_output_gt"])
+        self.GT = GT(self.Images, self.Keypoints, gt_sph_rad_mm, file_out_gt)
 
 
     def load_vis_config(self, config):
@@ -801,6 +1026,14 @@ class Draw:
         return draw
 
 
+    def save_gtruth(self):
+        if self.is_rectified:
+            self.GT.start(self.ind_id)
+        else:
+            # TODO: Would it be possible to get the centre's 3D point without using rectified images?
+            print("Error: Expected rectified images for SurgT's ground-truth")
+
+
 class Interface:
     def __init__(self, config):
         self.load_keys_config(config)
@@ -822,6 +1055,7 @@ class Interface:
         self.key_visibl  = c_keys["visible"]
         self.key_range   = c_keys["range"]
         self.key_zoom    = c_keys["zoom"]
+        self.key_gtruth  = c_keys["gtruth"]
 
 
     def mouse_listener(self, event, x, y, flags, param):
@@ -857,6 +1091,8 @@ class Interface:
             self.Draw.range_toggle()
         elif key_pressed == ord(self.key_zoom):
             self.Draw.zoom_mode_toggle()
+        elif key_pressed == ord(self.key_gtruth):
+            self.Draw.save_gtruth()
 
 
     def main_loop(self):
