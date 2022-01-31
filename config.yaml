@@ -3,10 +3,13 @@ data:
     dir: "data"
     subdir_stereo_l: "left"
     subdir_stereo_r: "right"
+    file_calib: "calibration.yaml"
     is_rectified: True # Are images rectified
     im_format: ".png"
     subdir_output_l: "left_kpts"
     subdir_output_r: "right_kpts"
+    gt_sphere_rad_mm: 2.5 # Sphere radius around kpt for ground-truth bboxes
+    file_output_gt: "gt_rectified_{}.yaml"
 key: # Interface keys
     quit: "q"
     im_prev: "a" # Go to previous image pair
@@ -18,6 +21,7 @@ key: # Interface keys
     visible: "v" # Is kpt visible? Toggle key
     range: "r"   # Range
     zoom: "z"    # Toggle zoom-mode
+    gtruth: "g"  # Get ground-truth bounding-boxes
 # Code configuration
 vis:
     window_name: "Stereo-matches labeler"
