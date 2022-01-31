@@ -60,10 +60,22 @@ class Keypoints:
         return self.new_r
 
 
+    def check_positive_disparity(self):
+        u_l = self.new_l["u"]
+        u_r = self.new_r["u"]
+        disp = u_l - u_r
+        if disp > 0:
+            True
+        else:
+            print("Error: disparity should be positive!")
+            exit()
+
+
     def check_for_new_kpt_pair(self):
         if self.new_l is not None and \
            self.new_r is not None:
-            self.save_kpt_pairs_to_files()
+            if self.check_positive_disparity():
+                self.save_kpt_pairs_to_files()
             self.new_l = None
             self.new_r = None
 
