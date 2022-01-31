@@ -802,8 +802,11 @@ class Draw:
                 self.im_draw_kpt_pair(kpt_key, no_pair_kpt[1], False)
         # Draw the paired keypoints
         for (kpt_l_key, kpt_l_val), (kpt_r_key, kpt_r_val) in zip(kpts_l.items(), kpts_r.items()):
-            kpt_3d = self.GT.get_kpt_3d_pt(kpt_l_val, kpt_r_val)
-            bboxs = self.GT.project_sphere_around_kpt(kpt_3d, kpt_l_val, kpt_r_val)
+            bboxs = (None, None)
+            if kpt_l_val["is_visible_in_both_stereo"] and\
+               kpt_r_val["is_visible_in_both_stereo"]:
+                kpt_3d = self.GT.get_kpt_3d_pt(kpt_l_val, kpt_r_val)
+                bboxs = self.GT.project_sphere_around_kpt(kpt_3d, kpt_l_val, kpt_r_val)
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True, bboxs[0])
             self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False, bboxs[1])
         # Draw zoom rectangle
