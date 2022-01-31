@@ -11,6 +11,7 @@ On the bottom-left of the interface you can see the index of the current image p
 ## Labelling instructions for the SurgT MICCAI challenge
 
 You will be labelling the bounding boxes by clicking on the same target in both images. You want to guarantee that the centre of the bounding box is always targeting the same tissue region.
+For the SurgT challenge, the annotators are never allowed to use `i`nterpolation, automation or external intervention to aid their labelling!
 
 #### Definitions
 
@@ -38,12 +39,9 @@ The usage idea is the following:
     1. The annotator should ensure that the keypoint is mapped accurately and corresponds to the same target in both stereo images;
     2. The annotator should also look back at the previous frame in the video sequence to ensure temporal video consistency in labelling;
     3. If it the keypoint is difficult to label, according to the definition above, then the annotator should set `is_difficult = True`. This can be done by pressing `m` to `m`ark the bounding box as a difficult one. You will notice that the bounding box will draw a X inside it when `is_difficult = True`.
-4. Steps 1. to 3. should be repeated if you want to labell multiple keypoints per video. If that is the case, then go back to the first video frame and press `w` to select the next keypoint id. Then you can start the labelling for the new keypoint id;
-5. For the SurgT challenge, the annotators are never allowed to use `i`nterpolation, automation or external intervention to aid their labelling;
-6. The annotations should be reviewed by another annotator.
-7. Finally, once the labelling is reviewed press `g` to generate the `g`round truth.
-    + If you want to eliminate a range of pictures you can again use `r` for range, and select the image range first, followed by pressing `e` to eliminate;
-4. Once you are satisfied with the labeling of that keypoint in the entire stereo video, you can go back to the img 0, press `w` to select the next keypoint id, and go back to step 1. to start labeling the next keypoint.
+4. Steps 1. to 3. should be repeated if you want to labell multiple keypoints per video. Once you are satisfied with the labeling of that keypoint in the entire stereo video, you can go back to the img 0, press `w` to select the next keypoint id, and go back to step 1. to start labeling the next keypoint.
+5. The annotations should be reviewed by another annotator.
+6. Finally, once the labelling is reviewed press `g` to generate the `g`round truth.
 
 #### How to eliminate a bounding box?
 
