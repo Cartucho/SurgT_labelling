@@ -508,7 +508,7 @@ class GT:
                  k_r["v"] - bbox_size_r,
                  bbox_size_r * 2,
                  bbox_size_r * 2)
-        return (bbox1, bbox2)
+        return bbox1, bbox2
 
 
     def start(self, ind_id):
@@ -533,7 +533,7 @@ class GT:
             # Project 3D points into 2D to get bbox size
             #bboxs = self.project_3d_into_2d(kpt_3d, k_l, k_r)
             # Get bbox around mask
-            data_kpt[ind_im] = bboxs
+            data_kpt[ind_im] = bboxs, k_l["is_difficult"]
         print("Done!")
         utils.write_yaml_data(out_path, data_kpt)
 
