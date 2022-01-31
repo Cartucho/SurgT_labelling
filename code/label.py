@@ -23,14 +23,18 @@ class Keypoints:
         self.new_r = None
 
 
-    def set_kpts(self, ind_id, kpt_l, kpt_r):
+    def add_kpt_pair(self, ind_id, kpt_l, kpt_r):
         self.kpts_l[ind_id] = kpt_l
         self.kpts_r[ind_id] = kpt_r
         self.save_kpt_pairs_to_files()
 
 
     def new_kpt(self, is_l_kpt, ind_id, u, v):
-        kpt_n = {"u": u, "v": v, "is_interp": False, "is_visible": True}
+        kpt_n = {"u": u,
+                 "v": v,
+                 "is_interp": False,
+                 "is_visible": True,
+                 "is_difficult": False}
         if is_l_kpt:
             self.new_l = kpt_n
             self.kpts_l[ind_id] = self.new_l
@@ -44,12 +48,14 @@ class Keypoints:
         k_l = {"u": u_l,
                "v": v_l,
                "is_interp": True,
-               "is_visible": True}
+               "is_visible": True,
+               "is_difficult": False}
         k_r = {"u": u_r,
                "v": v_r,
                "is_interp": True,
-               "is_visible": True}
-        self.set_kpts(ind_id, k_l, k_r)
+               "is_visible": True,
+               "is_difficult": False}
+        self.add_kpt_pair(ind_id, k_l, k_r)
 
 
     def get_new_kpt_l(self):
@@ -65,7 +71,7 @@ class Keypoints:
         u_r = self.new_r["u"]
         disp = u_l - u_r
         if disp > 0:
-            True
+            return True
         else:
             print("Error: disparity should be positive!")
             exit()
@@ -145,11 +151,11 @@ class Keypoints:
     def toggle_is_visibile(self, ind_id):
         """
          Cases:
-         1. No kpt labeled
+         1. No kpt labelled
 
                 If kpt is None, then set `is_visible`=False
 
-         2. Kpt labeled
+         2. Kpt labelled
 
                 If `is_visible`=True, then set `is_visible`=False
 
@@ -169,6 +175,19 @@ class Keypoints:
         self.kpts_l[ind_id] = kpt_not_vis
         self.kpts_r[ind_id] = kpt_not_vis
         self.save_kpt_pairs_to_files()
+
+
+    def toggle_is_difficult(self, ind_id):
+        """
+            You can only mark as `is_difficult` the keypoints
+             that are already labelled.
+        """
+        kpt_l, kpt_r = self.get_kpts_given_ind_id(ind_id)
+        if kpt_l is not None and kpt_r is not None:
+            new_bool = not (kpt_l["is_difficult"])
+            kpt_l["is_difficult"] = new_bool
+            kpt_r["is_difficult"] = new_bool
+            self.save_kpt_pairs_to_files()
 
 
 class Images:
@@ -611,7 +630,7 @@ class Draw:
             cv.line(self.im_r_all, pt_t, pt_b, color, line_thick)
 
 
-    def im_draw_kpt_cross(self, im, u, v, color, size_w, size_h):
+    def im_draw_kpt_cross(self, im, u, v, color, size_w, size_h, is_diff):
         # Draw outer square
         s_t = self.kpt_s_thick_pxl
         left_top = (u - size_w, v - size_h)
@@ -621,10 +640,20 @@ class Draw:
         c_t = self.kpt_c_thick_pxl
         left_mid = (u - size_w, v)
         right_mid = (u + size_w, v)
-        cv.line(im, left_mid, right_mid, color, c_t)
         mid_top = (u, v - size_h)
         mid_bot = (u, v + size_h)
-        cv.line(im, mid_top, mid_bot, color, c_t)
+        if is_diff:
+            pt1 = left_top
+            pt2 = right_bot
+            pt3 = (u - size_w, v + size_h) # left_bot
+            pt4 = (u + size_w, v - size_h) # right_top
+        else:
+            pt1 = (u - size_w, v) # left_mid
+            pt2 = (u + size_w, v) # right_mid
+            pt3 = (u, v - size_h) # mid_top
+            pt4 = (u, v + size_h) # mid_bot
+        cv.line(im, pt1, pt2, color, c_t)
+        cv.line(im, pt3, pt4, color, c_t)
 
 
     def im_draw_kpt_id(self, im, txt, u, v, color, size_w, size_h):
@@ -684,7 +713,7 @@ class Draw:
             """
              Either the kpt is not visible,
               or the user went from first to the last image,
-              or no labeled kpt was detected since the last `zoom_mode_reset()`
+              or no labelled kpt was detected since the last `zoom_mode_reset()`
             """
             return
         left, top, right, bot = self.zoom_mode_get_rect(kpt)
@@ -742,11 +771,12 @@ class Draw:
         else:
             size_w = int(bbox[2] / 2)
             size_h = int(bbox[3] / 2)
+        is_diff = kpt["is_difficult"]
         if is_left:
-            self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color, size_w, size_h)
+            self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color, size_w, size_h, is_diff)
             self.im_draw_kpt_id(self.im_l_kpt, txt, kpt_u, kpt_v, color, size_w, size_h)
         else:
-            self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color, size_w, size_h)
+            self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color, size_w, size_h, is_diff)
             self.im_draw_kpt_id(self.im_r_kpt, txt, kpt_u, kpt_v, color, size_w, size_h)
 
 
@@ -756,7 +786,7 @@ class Draw:
         self.selected_id_not_visible = False
         no_pair_key = list(set(kpts_l.keys()).symmetric_difference(kpts_r.keys()))
         if no_pair_key:
-            # There may be 1 kpt without pair (if being labeled)
+            # There may be 1 kpt without pair (if being labelled)
             kpt_key = no_pair_key[0]
             no_pair_kpt = self.Keypoints.get_kpts_given_ind_id(kpt_key)
             if no_pair_kpt[1] is None:
@@ -809,7 +839,7 @@ class Draw:
             else:
                 self.is_mouse_on_im_r = True
                 u -= self.im_w
-        # Force `v` if a point was already labeled
+        # Force `v` if a point was already labelled
         if self.is_mouse_on_im_l:
             kpt_n_r = self.Keypoints.get_new_kpt_r()
             if kpt_n_r is not None:
@@ -834,7 +864,7 @@ class Draw:
         if self.selected_id_not_visible:
             return
         if self.is_mouse_on_im_l or self.is_mouse_on_im_r:
-            if self.n_kpt_selected < 2: # If not already labeled
+            if self.n_kpt_selected < 2: # If not already labelled
                 # Save new keypoint
                 self.Keypoints.new_kpt(self.is_mouse_on_im_l,
                                        self.ind_id,
@@ -1004,6 +1034,18 @@ class Draw:
         self.update_im_with_keypoints(False)
 
 
+    def toggle_kpt_difficult(self):
+        i_min, i_max = self.get_range_min_and_max()
+        if i_min is not None and i_max is not None:
+            for i in range(i_min, i_max + 1):
+                self.load_kpt_data(i)
+                self.Keypoints.toggle_is_difficult(self.ind_id)
+            self.range_toggle()
+        else:
+            self.Keypoints.toggle_is_difficult(self.ind_id)
+        self.update_im_with_keypoints(False)
+
+
     def range_toggle(self):
         if self.range_start == -1:
             self.range_start = self.ind_im
@@ -1085,6 +1127,7 @@ class Interface:
         self.key_elimin  = c_keys["elimin"]
         self.key_interp  = c_keys["interp"]
         self.key_visibl  = c_keys["visible"]
+        self.key_diffic  = c_keys["diffclt"]
         self.key_range   = c_keys["range"]
         self.key_zoom    = c_keys["zoom"]
         self.key_gtruth  = c_keys["gtruth"]
@@ -1119,6 +1162,8 @@ class Interface:
             self.Draw.interp_kpt_positions()
         elif key_pressed == ord(self.key_visibl):
             self.Draw.toggle_kpt_visibility()
+        elif key_pressed == ord(self.key_diffic):
+            self.Draw.toggle_kpt_difficult()
         elif key_pressed == ord(self.key_range):
             self.Draw.range_toggle()
         elif key_pressed == ord(self.key_zoom):
