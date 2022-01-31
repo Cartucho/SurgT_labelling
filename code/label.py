@@ -495,7 +495,7 @@ class GT:
                 continue
             # Get keypoint's 3D point
             kpt_3d = self.get_kpt_3d_pt(k_l, k_r)
-            # Project sphere into unrectified image
+            # Project sphere into rectified image
             bboxs = self.project_sphere_around_kpt(kpt_3d, k_l, k_r)
             # Project 3D points into 2D to get bbox size
             #bboxs = self.project_3d_into_2d(kpt_3d, k_l, k_r)
@@ -597,21 +597,25 @@ class Draw:
             cv.line(self.im_r_all, pt_t, pt_b, color, line_thick)
 
 
-    def im_draw_kpt_cross(self, im, u, v, color):
-        size = self.kpt_c_size_pxl
+    def im_draw_kpt_cross(self, im, u, v, color, size_w, size_h):
         # Draw outer square
         s_t = self.kpt_s_thick_pxl
-        cv.rectangle(im, (u - size, v - size), (u + size, v + size), color, s_t)
+        left_top = (u - size_w, v - size_h)
+        right_bot = (u + size_w, v + size_h)
+        cv.rectangle(im, left_top, right_bot, color, s_t)
         # Draw inner cross
         c_t = self.kpt_c_thick_pxl
-        cv.line(im, (u - size, v), (u + size, v), color, c_t)
-        cv.line(im, (u, v - size), (u, v + size), color, c_t)
+        left_mid = (u - size_w, v)
+        right_mid = (u + size_w, v)
+        cv.line(im, left_mid, right_mid, color, c_t)
+        mid_top = (u, v - size_h)
+        mid_bot = (u, v + size_h)
+        cv.line(im, mid_top, mid_bot, color, c_t)
 
 
-    def im_draw_kpt_id(self, im, txt, u, v, color):
-        size = self.kpt_c_size_pxl
-        left = u - size
-        bot = v - size - self.kpt_id_v_marg_pxl
+    def im_draw_kpt_id(self, im, txt, u, v, color, size_w, size_h):
+        left = u - size_w
+        bot = v - size_h - self.kpt_id_v_marg_pxl
         font = cv.FONT_HERSHEY_SIMPLEX
         thickness = 2
         font_scale = self.get_text_scale_to_fit_height(txt, font, thickness)
@@ -692,7 +696,7 @@ class Draw:
             self.zoom_kpt_r = kpt
 
 
-    def im_draw_kpt_pair(self, ind_id, kpt, is_left):
+    def im_draw_kpt_pair(self, ind_id, kpt, is_left, bbox=None):
         # Set color
         color = np.array(self.kpt_color_not_s, dtype=np.uint8).tolist()
         if ind_id == self.ind_id:
@@ -718,22 +722,42 @@ class Draw:
         is_interp = kpt["is_interp"]
         if is_interp:
             txt += "'" # If `is_interp` add a symbol
-        if is_left:
-            self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color)
-            self.im_draw_kpt_id(self.im_l_kpt, txt, kpt_u, kpt_v, color)
+        if bbox is None:
+            size_w = self.kpt_c_size_pxl
+            size_h = size_w
         else:
-            self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color)
-            self.im_draw_kpt_id(self.im_r_kpt, txt, kpt_u, kpt_v, color)
+            size_w = int(bbox[2] / 2)
+            size_h = int(bbox[3] / 2)
+        if is_left:
+            self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color, size_w, size_h)
+            self.im_draw_kpt_id(self.im_l_kpt, txt, kpt_u, kpt_v, color, size_w, size_h)
+        else:
+            self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color, size_w, size_h)
+            self.im_draw_kpt_id(self.im_r_kpt, txt, kpt_u, kpt_v, color, size_w, size_h)
 
 
     def im_draw_all_kpts(self):
         kpts_l, kpts_r = self.Keypoints.get_kpts()
         self.n_kpt_selected = 0
         self.selected_id_not_visible = False
-        for kpt_l_key, kpt_l_val in kpts_l.items():
-            self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True)
-        for kpt_r_key, kpt_r_val in kpts_r.items():
-            self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False)
+        no_pair_key = list(set(kpts_l.keys()).symmetric_difference(kpts_r.keys()))
+        if no_pair_key:
+            # There may be 1 kpt without pair (if being labeled)
+            kpt_key = no_pair_key[0]
+            no_pair_kpt = self.Keypoints.get_kpts_given_ind_id(kpt_key)
+            if no_pair_kpt[1] is None:
+                # It is on the left image
+                self.im_draw_kpt_pair(kpt_key, no_pair_kpt[0], True)
+            else:
+                # It is on the right image
+                kpt_r_val = kpts_r[kpt_key]
+                self.im_draw_kpt_pair(kpt_key, no_pair_kpt[1], False)
+        # Draw the paired keypoints
+        for (kpt_l_key, kpt_l_val), (kpt_r_key, kpt_r_val) in zip(kpts_l.items(), kpts_r.items()):
+            kpt_3d = self.GT.get_kpt_3d_pt(kpt_l_val, kpt_r_val)
+            bboxs = self.GT.project_sphere_around_kpt(kpt_3d, kpt_l_val, kpt_r_val)
+            self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True, bboxs[0])
+            self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False, bboxs[1])
         # Draw zoom rectangle
         self.im_draw_zoom_mode_rect(True)
         self.im_draw_zoom_mode_rect(False)
