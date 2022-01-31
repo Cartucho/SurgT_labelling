@@ -671,6 +671,15 @@ class Draw:
             return
         left, top, right, bot = self.zoom_mode_get_rect(kpt)
         thick = self.zoom_thick_pxl
+        # Trick for not showing the zoom rectangle on borders
+        if left == 0:
+            left -= thick
+        if top == 0:
+            top -= thick
+        if right == (self.im_w - 1):
+            right += thick
+        if bot == (self.im_h - 1):
+            bot += thick
         cv.rectangle(im, (left, top), (right, bot), color, thick)
 
 
