@@ -20,6 +20,7 @@ For each target bounding box:
 - `is_difficult`
 Set `is_difficult = True` if the target's centre point is under:
   - **motion blur**
+  - **compression artifacts**
   - **specular highlights**
   - **low illumination**
   - **smoke**
