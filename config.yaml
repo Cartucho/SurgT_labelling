@@ -32,7 +32,7 @@ key:
     gtruth: "g"  # Get ground-truth bounding-boxes
 # Code configuration
 vis:
-    window_name: "Stereo-matches labeler"
+    window_name: "Stereo-matches labeller"
     guide: # Horizontal guide line
         thick_pxl: 1 # thickness in [pixels]
         color: [0, 255, 0] # [B, G, R]
