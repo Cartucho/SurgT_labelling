@@ -1,6 +1,6 @@
 # SurgT_labelling
 
-[![GitHub stars](https://img.shields.io/github/stars/Cartucho/stereo_labeling.svg?style=social&label=Stars)](https://github.com/Cartucho/stereo_labeling)
+[![GitHub stars](https://img.shields.io/github/stars/Cartucho/SurgT_labelling.svg?style=social&label=Stars)](https://github.com/Cartucho/SurgT_labelling)
 
 Goal: Get ground truth bounding boxes given a stereo video + camera calibration parameters.
 
