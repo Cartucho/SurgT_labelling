@@ -18,14 +18,7 @@ For the SurgT challenge, the annotators are never allowed to use `i`nterpolation
 For each target bounding box:
 
 - `is_difficult`
-Set `is_difficult = True` if the target's centre point is under:
-  - **motion blur**
-  - **compression artifacts**
-  - **specular highlights**
-  - **low illumination**
-  - **smoke**
-  - **partial occlusion**
-  - **partial out-of-view**
+Set `is_difficult = True` if the human annotation of the bounding box was too difficult, or there were conflicting opinions between annotators.
 
 - `is_visible_in_both_stereo`
 Set `is_visible_in_both_stereo = False` if the target's centre point is **fully out-of-view** or **fully occluded** in either the left or right image, in other words only when it is compelety invisible in one of the stereo images. Otherwise `is_visible_in_both_stereo = True` even if `is_difficult = True`.
