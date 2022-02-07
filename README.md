@@ -4,7 +4,7 @@
 
 Goal: Get ground truth bounding boxes given a stereo video + camera calibration parameters.  
 
-<img src="https://user-images.githubusercontent.com/15831541/139836761-24aeb645-61ef-47a4-9752-87411b5634e8.png">
+<img src="https://user-images.githubusercontent.com/15831541/152753224-e5e87ab7-e508-4aba-92ae-3e6a0587b246.png">
 
 On the bottom-left of the interface you can see the index of the current image pair and bounding box id. The `w` `a` `s` `d` keys are set default keys for selecting different images and bounding boxes ids. `a` and `d` are used to go to the previous and next image, respectively, and `w` and `s` to go to the next and previous bounding box id, respectively. If can change the keys according to your preferance by editing the [config.yaml](https://github.com/Cartucho/stereo_labeling/blob/main/config.yaml) file. It is also in the [config.yaml](https://github.com/Cartucho/stereo_labeling/blob/main/config.yaml) file where you set the input directory, video and calibration parameters.
 
