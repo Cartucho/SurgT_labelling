@@ -29,7 +29,7 @@ Set `is_visible_in_both_stereo = False` if the target's centre point is **fully 
 #### How to label?
 
 The usage idea is the following:
-1. The annotator should watch the entire video and decide which keypoint will be labelled next;
+1. The annotator should watch the entire video and decide which keypoint will be labelled next. We recommend the annotator to choose a keypoint that is easy to label throughout the video;
 2. Then, the annotator should classify `is_visible_in_both_stereo` for all the frame-pairs of the video. This can be done by pressing `v` over an image, or `v` over a range of images. A big red X will be draw over the images with `is_visible_in_both_stereo = False`;
 3. Then the annotator should labell the keypoint in all the remaining images, where `is_visible_in_both_stereo = True`. All the keypoints should respect:
     1. The annotator should ensure that the keypoint is mapped accurately and corresponds to the same target in both stereo images;
