@@ -29,12 +29,12 @@ class Keypoints:
         self.save_kpt_pairs_to_files()
 
 
-    def new_kpt(self, is_l_kpt, ind_id, u, v):
+    def new_kpt(self, is_l_kpt, ind_id, u, v, is_difficult=False):
         kpt_n = {"u": u,
                  "v": v,
                  "is_interp": False,
                  "is_visible_in_both_stereo": True,
-                 "is_difficult": False}
+                 "is_difficult": is_difficult}
         if is_l_kpt:
             self.new_l = kpt_n
             self.kpts_l[ind_id] = self.new_l
@@ -891,12 +891,14 @@ class Draw:
                 self.Keypoints.new_kpt(True,
                                        self.ind_id,
                                        self.zoom_kpt_l["u"],
-                                       self.zoom_kpt_l["v"])
+                                       self.zoom_kpt_l["v"],
+                                       self.zoom_kpt_l["is_difficult"])
                # Re-adjust right
                 self.Keypoints.new_kpt(False,
                                        self.ind_id,
                                        self.zoom_kpt_r["u"],
-                                       self.zoom_kpt_r["v"])
+                                       self.zoom_kpt_r["v"],
+                                       self.zoom_kpt_l["is_difficult"])
                 # Draw new keypoints as well
                 self.update_im_with_keypoints(False)
 
