@@ -29,12 +29,12 @@ class Keypoints:
         self.save_kpt_pairs_to_files()
 
 
-    def new_kpt(self, is_l_kpt, ind_id, u, v, is_difficult=False):
+    def new_kpt(self, is_l_kpt, ind_id, u, v):
         kpt_n = {"u": u,
                  "v": v,
                  "is_interp": False,
                  "is_visible_in_both_stereo": True,
-                 "is_difficult": is_difficult}
+                 "is_difficult": False}
         if is_l_kpt:
             self.new_l = kpt_n
             self.kpts_l[ind_id] = self.new_l
@@ -161,13 +161,18 @@ class Keypoints:
                  then set `is_visible_in_both_stereo`=False
 
          3. Picture already marked as not visible
-
-                If `is_visible_in_both_stereo`=False, then delete the kpts to
-                relabel them later, which will set `is_visible_in_both_stereo`=True
         """
         kpt_l, kpt_r = self.get_kpts_given_ind_id(ind_id)
         # Case 3.
         if kpt_l is not None and kpt_r is not None:
+            # Toggle "is_difficult" only
+            if "u" in kpt_l and "u" in kpt_r:
+                new_bool = not (kpt_l["is_visible_in_both_stereo"])
+                kpt_l["is_visible_in_both_stereo"] = new_bool
+                kpt_r["is_visible_in_both_stereo"] = new_bool
+                self.save_kpt_pairs_to_files()
+                return
+            # Delete keypoints for later relabel
             if not kpt_l["is_visible_in_both_stereo"] \
                and not kpt_r["is_visible_in_both_stereo"]:
                 self.eliminate_kpts(ind_id)
@@ -181,15 +186,38 @@ class Keypoints:
 
     def toggle_is_difficult(self, ind_id):
         """
-            You can only mark as `is_difficult` the keypoints
-             that are already labelled.
+         Cases:
+         1. No kpt labelled
+
+                If kpt is None, then set `is_difficult`=True
+
+         2. Kpt labelled
+
+                If `is_difficult`=True,
+                 then set `is_difficult`=False
+
+         3. Picture already marked as `is_difficult`
         """
         kpt_l, kpt_r = self.get_kpts_given_ind_id(ind_id)
+        # Case 3.
         if kpt_l is not None and kpt_r is not None:
-            new_bool = not (kpt_l["is_difficult"])
-            kpt_l["is_difficult"] = new_bool
-            kpt_r["is_difficult"] = new_bool
-            self.save_kpt_pairs_to_files()
+            # Toggle "is_difficult" only
+            if "u" in kpt_l and "u" in kpt_r:
+                new_bool = not (kpt_l["is_difficult"])
+                kpt_l["is_difficult"] = new_bool
+                kpt_r["is_difficult"] = new_bool
+                self.save_kpt_pairs_to_files()
+                return
+            # Delete keypoints for later relabel
+            if kpt_l["is_difficult"] \
+               and kpt_r["is_difficult"]:
+                self.eliminate_kpts(ind_id)
+                return
+        # Case 1. and 2.
+        kpt_diff = {"is_visible_in_both_stereo": True, "is_difficult": True}
+        self.kpts_l[ind_id] = kpt_diff
+        self.kpts_r[ind_id] = kpt_diff
+        self.save_kpt_pairs_to_files()
 
 
 class Images:
@@ -264,6 +292,9 @@ class Interpolation:
                 continue
             if not k_l["is_visible_in_both_stereo"] or \
                not k_r["is_visible_in_both_stereo"]:
+                break
+            if k_l["is_difficult"] or \
+               k_r["is_difficult"]:
                 break
             data_kpt_intrp[im_name] = None
             if not k_l["is_interp"] and not k_r["is_interp"]:
@@ -528,10 +559,11 @@ class GT:
             if k_l is None or k_r is None \
                or not k_l["is_visible_in_both_stereo"] \
                or not k_r["is_visible_in_both_stereo"]:
-                data_kpt[ind_im] = (False, None, None)
+                data_kpt[ind_im] = (False, False, None)
                 continue
             if k_l["is_difficult"] or k_r["is_difficult"]:
                 data_kpt[ind_im] = (True, True, None)
+                continue
             # Get keypoint's 3D point
             kpt_3d = self.get_kpt_3d_pt(k_l, k_r)
             # Project sphere into rectified image
@@ -636,7 +668,7 @@ class Draw:
             cv.line(self.im_r_all, pt_t, pt_b, color, line_thick)
 
 
-    def im_draw_kpt_cross(self, im, u, v, color, size_w, size_h, is_diff):
+    def im_draw_kpt_cross(self, im, u, v, color, size_w, size_h):
         # Draw outer square
         s_t = self.kpt_s_thick_pxl
         left_top = (u - size_w, v - size_h)
@@ -644,20 +676,10 @@ class Draw:
         cv.rectangle(im, left_top, right_bot, color, s_t)
         # Draw inner cross
         c_t = self.kpt_c_thick_pxl
-        left_mid = (u - size_w, v)
-        right_mid = (u + size_w, v)
-        mid_top = (u, v - size_h)
-        mid_bot = (u, v + size_h)
-        if is_diff:
-            pt1 = left_top
-            pt2 = right_bot
-            pt3 = (u - size_w, v + size_h) # left_bot
-            pt4 = (u + size_w, v - size_h) # right_top
-        else:
-            pt1 = (u - size_w, v) # left_mid
-            pt2 = (u + size_w, v) # right_mid
-            pt3 = (u, v - size_h) # mid_top
-            pt4 = (u, v + size_h) # mid_bot
+        pt1 = (u - size_w, v) # left_mid
+        pt2 = (u + size_w, v) # right_mid
+        pt3 = (u, v - size_h) # mid_top
+        pt4 = (u, v + size_h) # mid_bot
         cv.line(im, pt1, pt2, color, c_t)
         cv.line(im, pt3, pt4, color, c_t)
 
@@ -737,7 +759,7 @@ class Draw:
 
 
     def zoom_mode_copy_kpt(self, is_left, kpt):
-        if not kpt["is_visible_in_both_stereo"]:
+        if not kpt["is_visible_in_both_stereo"] or kpt["is_difficult"]:
             kpt = None
         if is_left:
             self.zoom_kpt_l = kpt
@@ -764,6 +786,19 @@ class Draw:
                 else:
                     self.im_draw_kpt_not_vis(self.im_r_kpt, color)
             return
+        is_difficult = kpt["is_difficult"]
+        # Draw \ if is_difficult and return
+        if is_difficult:
+            if ind_id == self.ind_id: # Only if the ind_id is selected
+                if self.is_zoom_on:
+                    self.zoom_mode_reset()
+                self.selected_id_is_diff = True
+                if is_left:
+                    cv.line(self.im_l_kpt, (0, 0), (self.im_w, self.im_h), color, self.kpt_s_thick_pxl)
+                else:
+                    cv.line(self.im_r_kpt, (0, 0), (self.im_w, self.im_h), color, self.kpt_s_thick_pxl)
+            return
+
         # Draw keypoint (cross + id)
         txt = "{}".format(ind_id)
         kpt_u = kpt["u"]
@@ -777,12 +812,12 @@ class Draw:
         else:
             size_w = int(bbox[2] / 2)
             size_h = int(bbox[3] / 2)
-        is_diff = kpt["is_difficult"]
+
         if is_left:
-            self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color, size_w, size_h, is_diff)
+            self.im_draw_kpt_cross(self.im_l_kpt, kpt_u, kpt_v, color, size_w, size_h)
             self.im_draw_kpt_id(self.im_l_kpt, txt, kpt_u, kpt_v, color, size_w, size_h)
         else:
-            self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color, size_w, size_h, is_diff)
+            self.im_draw_kpt_cross(self.im_r_kpt, kpt_u, kpt_v, color, size_w, size_h)
             self.im_draw_kpt_id(self.im_r_kpt, txt, kpt_u, kpt_v, color, size_w, size_h)
 
 
@@ -790,6 +825,7 @@ class Draw:
         kpts_l, kpts_r = self.Keypoints.get_kpts()
         self.n_kpt_selected = 0
         self.selected_id_not_visible = False
+        self.selected_id_is_diff = False
         no_pair_key = list(set(kpts_l.keys()).symmetric_difference(kpts_r.keys()))
         if no_pair_key:
             # There may be 1 kpt without pair (if being labelled)
@@ -806,14 +842,16 @@ class Draw:
         for (kpt_l_key, kpt_l_val), (kpt_r_key, kpt_r_val) in zip(kpts_l.items(), kpts_r.items()):
             bboxs = (None, None)
             if kpt_l_val["is_visible_in_both_stereo"] and\
-               kpt_r_val["is_visible_in_both_stereo"]:
+               kpt_r_val["is_visible_in_both_stereo"] and\
+               not kpt_l_val["is_difficult"] and\
+               not kpt_r_val["is_difficult"]:
                 kpt_3d = self.GT.get_kpt_3d_pt(kpt_l_val, kpt_r_val)
                 bboxs = self.GT.project_sphere_around_kpt(kpt_3d, kpt_l_val, kpt_r_val)
             self.im_draw_kpt_pair(kpt_l_key, kpt_l_val, True, bboxs[0])
             self.im_draw_kpt_pair(kpt_r_key, kpt_r_val, False, bboxs[1])
         # Draw zoom rectangle
-        self.im_draw_zoom_mode_rect(True)
-        self.im_draw_zoom_mode_rect(False)
+        self.im_draw_zoom_mode_rect(True) # Left
+        self.im_draw_zoom_mode_rect(False) # Right
 
 
     def zoom_mode_get_full_image_coords(self, u, v):
@@ -870,7 +908,7 @@ class Draw:
 
 
     def mouse_lclick(self):
-        if self.selected_id_not_visible:
+        if self.selected_id_not_visible or self.selected_id_is_diff:
             return
         if self.is_mouse_on_im_l or self.is_mouse_on_im_r:
             if self.n_kpt_selected < 2: # If not already labelled
@@ -893,14 +931,12 @@ class Draw:
                 self.Keypoints.new_kpt(True,
                                        self.ind_id,
                                        self.zoom_kpt_l["u"],
-                                       self.zoom_kpt_l["v"],
-                                       self.zoom_kpt_l["is_difficult"])
+                                       self.zoom_kpt_l["v"])
                # Re-adjust right
                 self.Keypoints.new_kpt(False,
                                        self.ind_id,
                                        self.zoom_kpt_r["u"],
-                                       self.zoom_kpt_r["v"],
-                                       self.zoom_kpt_r["is_difficult"])
+                                       self.zoom_kpt_r["v"])
                 # Draw new keypoints as well
                 self.update_im_with_keypoints(False)
 
@@ -1001,7 +1037,7 @@ class Draw:
 
 
     def eliminate_selected_kpts(self):
-        if self.selected_id_not_visible:
+        if self.selected_id_not_visible or self.selected_id_is_diff:
             return
         i_min, i_max = self.get_range_min_and_max()
         if i_min is not None and i_max is not None:
@@ -1017,7 +1053,7 @@ class Draw:
 
 
     def interp_kpt_positions(self):
-        if self.selected_id_not_visible:
+        if self.selected_id_not_visible or self.selected_id_is_diff:
             return
         self.Interpolation.start(self.ind_id, self.ind_im)
         """ Show the newly interpolated keypoints """
@@ -1080,7 +1116,7 @@ class Draw:
 
 
     def zoom_mode_check_start(self):
-        if self.selected_id_not_visible:
+        if self.selected_id_not_visible or self.selected_id_is_diff:
             return False
         if self.zoom_kpt_l is None or \
            self.zoom_kpt_r is None:
