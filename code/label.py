@@ -528,8 +528,10 @@ class GT:
             if k_l is None or k_r is None \
                or not k_l["is_visible_in_both_stereo"] \
                or not k_r["is_visible_in_both_stereo"]:
-                data_kpt[ind_im] = None
+                data_kpt[ind_im] = (False, None, None)
                 continue
+            if k_l["is_difficult"] or k_r["is_difficult"]:
+                data_kpt[ind_im] = (True, True, None)
             # Get keypoint's 3D point
             kpt_3d = self.get_kpt_3d_pt(k_l, k_r)
             # Project sphere into rectified image
@@ -537,7 +539,7 @@ class GT:
             # Project 3D points into 2D to get bbox size
             #bboxs = self.project_3d_into_2d(kpt_3d, k_l, k_r)
             # Get bbox around mask
-            data_kpt[ind_im] = bboxs, k_l["is_difficult"]
+            data_kpt[ind_im] = (True, False, bboxs)
         print("Done!")
         utils.write_yaml_data(out_path, data_kpt)
 
