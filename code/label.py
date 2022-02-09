@@ -898,7 +898,7 @@ class Draw:
                                        self.ind_id,
                                        self.zoom_kpt_r["u"],
                                        self.zoom_kpt_r["v"],
-                                       self.zoom_kpt_l["is_difficult"])
+                                       self.zoom_kpt_r["is_difficult"])
                 # Draw new keypoints as well
                 self.update_im_with_keypoints(False)
 
