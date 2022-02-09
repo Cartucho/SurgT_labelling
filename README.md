@@ -12,19 +12,20 @@ On the bottom-left of the interface you can see the ids of the current image pai
 
 ## Labelling instructions for the SurgT MICCAI challenge
 
-You will be labelling the bounding boxes by clicking on the same target in both images. You want to guarantee that the centre of the bounding box is always targeting the same tissue region.
+You will be labelling the bounding boxes by clicking on the same target in both images. You want to guarantee that the **centre** of the bounding box is always targeting the same tissue region.
 For the SurgT challenge, the annotators are never allowed to use `i`nterpolation, automation or external intervention to aid their labelling!
 
 #### Definitions
 
 For each target bounding box:
 
-- `is_difficult`
-Set `is_difficult = True` if the human annotation of the bounding box was too difficult, or there were conflicting opinions between annotators.
-
 - `is_visible_in_both_stereo`
-Set `is_visible_in_both_stereo = False` if the target's centre point is **fully out-of-view** or **fully occluded** in either the left or right image, in other words only when it is compelety invisible in one of the stereo images. Otherwise `is_visible_in_both_stereo = True` even if `is_difficult = True`.
+Set `is_visible_in_both_stereo = False` if the target's centre point is **(1) fully out-of-view** or **(2) fully occluded** in either the left or right image, in other words only when the target's centre is compelety NOT visible in 1 (one) of the stereo images. Otherwise `is_visible_in_both_stereo = True`.
 
+- `is_difficult`
+Set `is_difficult = True` if the target's centre **(1) annotation is too difficult**, or there are **(2) conflicting opinions between annotators**, or **(3) there is fast-camera-motion**. The frames that are marked as difficult (`is_difficult = True`) do not affect any of the metrics/scores and the trackers are stopped at those frames. In practice, in our benchmarking tool, the difficult frames are simply ignored and the trackers are re-initialized after going through those difficult frames. The reason for marking frame-pairs as difficult during (3) fast-camera-motion, is that it is possible to have error in the stereo-camera's synchronization. Therefore, the left and right image may be captured at slightly different timestamps, which is a problem during fast-camera-motion since the target will no longer be imaged consistently between the stereo images. The faster the camera moves, the easier it is to notice synchronization errors. By labeling these image-pairs as `is_difficult = True` they are correctly ignored by the benchmarking tool.
+
+The trackers are only initialized or re-initialized in image pairs where the target's centre is both visible (`is_visible_in_both_stereo = True`) and not difficult (`is_difficult = False`).
 
 #### How to label?
 
