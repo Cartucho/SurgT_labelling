@@ -1050,7 +1050,7 @@ class Draw:
             self.range_toggle()
         else:
             self.Keypoints.toggle_is_difficult(self.ind_id)
-        self.update_im_with_keypoints(False)
+        self.update_im_with_keypoints(True)
 
 
     def range_toggle(self):
